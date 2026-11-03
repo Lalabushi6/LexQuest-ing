@@ -1,0 +1,47 @@
+{
+  "name": "lexquest",
+  "productName": "LexQuest",
+  "version": "1.2.0",
+  "description": "Gamified, memory-first study app for law school",
+  "main": "main.js",
+  "author": "Lalabushi",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/planner.test.js",
+    "dist": "electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "io.github.lalabushi6.lexquest",
+    "productName": "LexQuest",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "updater.js",
+      "update-source.json",
+      "preload.js",
+      "app/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "LexQuest.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  }
+}

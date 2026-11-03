@@ -1,0 +1,51 @@
+# Pushing a version tag (for example v1.2.0) builds LexQuest.exe and publishes it as a GitHub Release,
+# which is what the app's Settings > Updates checks.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the tag matches package.json
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match package.json version $version" }
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Build this repository's name into the app, so its updates come from here
+        shell: pwsh
+        run: '@{ repo = $env:GITHUB_REPOSITORY } | ConvertTo-Json | Set-Content update-source.json -Encoding utf8NoBOM'
+
+      - name: Build LexQuest.exe
+        run: npx electron-builder --win portable --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Write the checksum the app verifies
+        shell: pwsh
+        run: (Get-FileHash dist/LexQuest.exe -Algorithm SHA256).Hash.ToLower() | Set-Content dist/LexQuest.exe.sha256 -NoNewline -Encoding ascii
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME dist/LexQuest.exe dist/LexQuest.exe.sha256 --title "LexQuest $env:GITHUB_REF_NAME" --generate-notes

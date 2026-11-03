@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-theme="midnight">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data:; media-src 'self' data:">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LexQuest</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-mark">⚖️</span>
+        <span class="brand-name">LexQuest</span>
+      </div>
+      <button class="sem-chip" id="semChip" data-go="#/semesters" title="Change semester"></button>
+      <nav class="nav" id="nav">
+        <button data-route="home"><span class="ico">🏠</span><span>Today</span></button>
+        <button data-route="subjects"><span class="ico">📚</span><span>Subjects</span></button>
+        <button data-route="semesters"><span class="ico">🎓</span><span>Semesters</span></button>
+        <button data-route="review"><span class="ico">🃏</span><span>Flashcards</span><b class="badge" id="dueBadge"></b></button>
+        <button data-route="palace"><span class="ico">🏛️</span><span>Memory Palace</span></button>
+        <button data-route="papers"><span class="ico">📝</span><span>Past Papers</span></button>
+        <button data-route="mock"><span class="ico">⏱️</span><span>Mock Exam</span></button>
+        <button data-route="timetable"><span class="ico">🗓️</span><span>Timetable</span></button>
+        <button data-route="notes"><span class="ico">🗒️</span><span>My Notes</span></button>
+        <button data-route="statute"><span class="ico">📜</span><span>Bare Acts</span></button>
+        <button data-route="guide"><span class="ico">🧠</span><span>Memory Guide</span></button>
+        <button data-route="trophies"><span class="ico">🏆</span><span>Trophies</span></button>
+        <button data-route="settings"><span class="ico">⚙️</span><span>Settings</span></button>
+      </nav>
+      <div class="sidebar-foot" id="sidebarFoot"></div>
+    </aside>
+
+    <div class="main-wrap">
+      <header class="topbar">
+        <button class="icon-btn" id="toggleSidebar" title="Focus mode: hide the menu (F)">☰</button>
+        <div class="topbar-title" id="crumb"></div>
+        <div class="sprint" id="sprintBox"></div>
+        <div class="xpbox" id="xpBox"></div>
+        <button class="icon-btn" id="parkingBtn" title="Parking lot: jot a distracting thought and get back to work (Ctrl+L)">🅿️</button>
+      </header>
+      <main class="main" id="main" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div id="loginRoot" class="login" hidden></div>
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root"></div>
+
+  <script src="js/boot.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+dist/
+*.exe
+*.exe.download
+*.exe.previous
+
+# Personal study data and course packs: never commit these
+LexQuest Data/
+LexQuest Content/
+
+# Secrets
+.env
+.env.*
+
+# System and tool files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
