@@ -44,6 +44,7 @@ A pack is a JavaScript file that adds to `window.LQ_DATA`. The example pack is t
 | `D.acts`, `D.actText` | Bare acts, as links to PDFs or as searchable text |
 | `D.degree`, `D.semesterInfo` | The degree and its semesters |
 | `D.badges` | Extra trophies |
+| `D.guide` | Extra Memory Guide sections |
 
 Packs load alphabetically. To set the order, add a `content.json` to the folder: `{ "load": ["first.js", "second.js"] }`. Only the files it lists are loaded. A pack with an error is reported in Settings.
 

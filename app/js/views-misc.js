@@ -116,7 +116,7 @@
   ];
   LQ.views.guide = function guide() {
     return `<div class="page read"><h1>🧠 Memory guide</h1><p class="muted">Short, practical, and tuned for a weak memory and a short attention span. Each idea is built into the app somewhere.</p>
-      ${GUIDE.map(([i, t, body]) => `<div class="card prose" style="margin-bottom:14px"><h2>${i} ${esc(t)}</h2>${LQ.md(body)}</div>`).join('')}</div>`;
+      ${GUIDE.concat(D.guide || []).map(([i, t, body]) => `<div class="card prose" style="margin-bottom:14px"><h2>${i} ${esc(t)}</h2>${LQ.md(body)}</div>`).join('')}</div>`;
   };
 
   /* ---------- Trophies ---------- */

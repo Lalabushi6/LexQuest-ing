@@ -1,7 +1,7 @@
 {
   "name": "lexquest",
   "productName": "LexQuest",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Gamified, memory-first study app for law school",
   "main": "main.js",
   "author": "Lalabushi",

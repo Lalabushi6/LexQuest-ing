@@ -154,6 +154,11 @@
   for (let i = 6; i <= 11; i++) day(i, '3 h', [{ text: 'Due-card review', hours: 0.5 }]);
   day(12, 'exam', [{ subject: 'exam', text: '🎓 Pirate Law end-term' }]);
 
+  /* Extra Memory Guide sections: [icon, title, text]. */
+  D.guide = (D.guide || []).concat([
+    ['🦜', 'Remembering the Treasure Act', '- **Section 3:** three coins on a barrel, one for each share.\n- **Section 4:** four sailors pointing at the claimant: you prove it.']
+  ]);
+
   /* Your own badges. `test` gets the LQ object once the app has started. */
   D.badges = (D.badges || []).concat([
     { id: 'pl-badge', icon: '🦜', name: 'Ship Shape', desc: 'Reach 50% card mastery in Pirate Law', test: () => window.LQ.mastery({ subject: 'pirate' }) >= 50 }
