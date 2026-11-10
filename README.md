@@ -9,7 +9,8 @@ LexQuest comes with no courses. You build your own in the **Course Builder** fro
 - **A Course Builder:** Claude reads a course manual and lays out the weeks, topics and readings, then builds each week's notes from that week's readings as the semester goes on
 - **Search everything** (Ctrl+K): topics, cases, flashcards, bare-act sections and past questions
 - **A seven-step flow for each topic:** guides, cases, bare-act links, Cornell notes with a model summary, and five-lens "council" critiques
-- **Spaced flashcards** with random order, cram mode and quizzes
+- **Spaced flashcards** with random order, cram mode, quizzes and an optional **type-your-answer** mode that compares what you wrote with the card and suggests a grade
+- **Drills** for retrieval practice: closed-book **free recall** of a topic, checked against its cards and scheduled 1, 3, 7 and 14 days after you learn it; **weak spots** (the cards and questions you keep missing); an **interleaved quiz** across a subject's topics; and a **case drill** (name the case from what it held)
 - **Memory palaces**, walked forwards and backwards
 - **Past papers and timed mock exams**, with model outlines and self-marking
 - **An adaptive timetable:** topic blocks you skip are split up and spread over the days before that subject's next exam
@@ -92,6 +93,7 @@ npm test
 | `app/js/course-format.js` | The built-course format: checks Claude's replies and turns a course into a subject (tested in `test/`) |
 | `app/js/views-builder.js`, `app/js/search.js` | The Course Builder's pages, and search |
 | `app/js/planner.js` | The adaptive timetable logic, with no UI (tested in `test/`) |
+| `app/js/retention.js`, `app/js/views-retention.js` | Drills: answer and free-recall scoring, weak spots, interleaved and case drills, the spaced recall schedule (the logic is tested in `test/`), and their pages |
 | `app/js/` | Views, flashcards, profiles and the update screen |
 | `examples/` | The example course pack |
 

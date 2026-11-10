@@ -61,6 +61,7 @@
           ${parked ? `<hr><div class="item click" data-act="park"><span>🅿️</span><span class="grow">${parked} parked thought${parked > 1 ? 's' : ''} waiting for you</span></div>` : ''}
         </div>
       </div>
+      ${LQ.recallNudge ? LQ.recallNudge() : ''}
 
       <div class="section-title"><h2>🗓️ Exam countdown</h2></div>
       <div class="grid g4">${exams.slice(0, 8).map(e => {

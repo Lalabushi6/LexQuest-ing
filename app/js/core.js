@@ -102,7 +102,7 @@ LQ.allTopics = sid => { const s = D.subjects[sid]; return s ? s.units.flatMap(u 
 const DEFAULT_SETTINGS = {
   name: '', theme: 'midnight', accent: '', font: 'system', fontSize: 16, lineHeight: 1.6, readWidth: 860,
   reduceMotion: false, sound: true, sprintMin: 25, breakMin: 5, longBreakMin: 15, dailyGoal: 8,
-  notesMinWords: 60, cardsPerSession: 40, newPerDay: 60, confetti: true, catchUpHours: 2
+  notesMinWords: 60, cardsPerSession: 40, newPerDay: 60, confetti: true, catchUpHours: 2, typeAnswers: false
 };
 
 function freshState() {
@@ -110,7 +110,7 @@ function freshState() {
     version: 1, createdAt: Date.now(), settings: { ...DEFAULT_SETTINGS },
     xp: 0, days: {}, streak: { current: 0, best: 0, lastDay: null },
     cards: {}, customCards: [], topics: {}, notes: {}, palace: { custom: [], walks: {} },
-    timetable: {}, planPieces: {}, quests: null, badges: {}, parking: [], mocks: [], mcq: {}, practice: {}, newToday: { day: null, n: 0 }
+    timetable: {}, planPieces: {}, quests: null, badges: {}, parking: [], mocks: [], mcq: {}, practice: {}, newToday: { day: null, n: 0 }, recall: {}
   };
 }
 

@@ -22,7 +22,10 @@
   LQ.mountCardSession = function mountCardSession(el, opts = {}) {
     const filter = { subject: opts.subject, topic: opts.topic };
     let queue;
-    if (opts.cram) queue = shuffle(LQ.allCards().filter(c => (!filter.subject || c.subject === filter.subject) && (!filter.topic || c.topic === filter.topic)));
+    // Type-to-answer: write the answer before seeing it (stronger recall), then compare.
+    const typing = opts.type != null ? !!opts.type : !!LQ.state.settings.typeAnswers;
+    if (opts.cards) queue = shuffle(opts.cards.slice());
+    else if (opts.cram) queue = shuffle(LQ.allCards().filter(c => (!filter.subject || c.subject === filter.subject) && (!filter.topic || c.topic === filter.topic)));
     else {
       const due = shuffle(LQ.dueCards(filter));
       const nt = LQ.state.newToday;
@@ -66,17 +69,34 @@
         <div class="row between" style="margin-bottom:8px"><small class="muted">${done}/${total} done${again ? ` · ${again} to repeat` : ''}</small><small class="muted">${opts.cram ? 'Cram mode (doesn’t change schedule much)' : ''}</small></div>
         <div class="progress" style="margin-bottom:14px"><i style="width:${done / total * 100}%"></i></div>
         <div class="flash" id="flash"><div class="face front"><span class="meta">${esc(topic ? topic.t.title : (D.subjects[current.subject] || {}).short || '')}</span><div class="q">${f.front}</div></div><div class="face back"><span class="meta">Answer</span><div>${f.back}</div></div></div>
-        <div class="grades" id="grades"><button class="btn primary" id="flipBtn">Show answer <kbd>Space</kbd></button></div>
-        <div class="kbd-hint">Space = flip, Space again = Good · 1 Again · 2 Hard · 3 Good · 4 Easy</div></div>`;
+        ${typing ? '<textarea id="typed" class="typed-answer" rows="3" placeholder="Type your answer first — Ctrl+Enter to check"></textarea><div id="typedResult"></div>' : ''}
+        <div class="grades" id="grades"><button class="btn primary" id="flipBtn">${typing ? 'Check my answer <kbd>Ctrl+Enter</kbd>' : 'Show answer <kbd>Space</kbd>'}</button></div>
+        <div class="kbd-hint">${typing ? 'Ctrl+Enter = check · then 1 Again · 2 Hard · Space/3 Good · 4 Easy' : 'Space = flip, Space again = Good · 1 Again · 2 Hard · 3 Good · 4 Easy'}</div></div>`;
       $('#flash', el).onclick = flip;
       $('#flipBtn', el).onclick = flip;
+      const ta = $('#typed', el);
+      if (ta) {
+        ta.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); flip(); } };
+        ta.focus();
+      }
     }
     function flip() {
       if (flipped) return;
       flipped = true;
       $('#flash', el).classList.add('flipped');
+      let suggested = 0;
+      const ta = $('#typed', el);
+      if (ta) {
+        const typed = ta.value.trim();
+        ta.readOnly = true; ta.blur();
+        if (typed) {
+          const cov = LQ.retention.coverage(typed, LQ.retention.cardPoint(current).answer);
+          suggested = cov.total ? LQ.retention.suggestGrade(cov.score) : 0;
+          $('#typedResult', el).innerHTML = cov.total ? `<div class="callout ${cov.score >= 0.5 ? 'tip' : 'warn'}">You matched ${cov.hit.length} of ${cov.total} key words${cov.miss.length ? ` — missing: <em>${esc(cov.miss.slice(0, 8).join(', '))}</em>` : ''}. Suggested grade: <strong>${['', 'Again', 'Hard', 'Good', 'Easy'][suggested]}</strong> (you decide).</div>` : '';
+        } else $('#typedResult', el).innerHTML = '<div class="callout warn">Nothing typed — grade yourself honestly.</div>';
+      }
       $('#grades', el).innerHTML = `<button class="btn bad" data-g="1">Again <kbd>1</kbd></button><button class="btn warn" data-g="2">Hard <kbd>2</kbd></button><button class="btn good" data-g="3">Good <kbd>Space</kbd></button><button class="btn primary" data-g="4">Easy <kbd>4</kbd></button>`;
-      $$('[data-g]', el).forEach(b => b.onclick = () => grade(+b.dataset.g));
+      $$('[data-g]', el).forEach(b => { b.onclick = () => grade(+b.dataset.g); if (+b.dataset.g === suggested) b.classList.add('suggested'); });
     }
     function grade(g) {
       if (!flipped) return;
@@ -117,6 +137,7 @@
     return `<div class="page"><div class="row between"><h1>🃏 Flashcards</h1><div class="row"><button class="btn" id="newCard">＋ New card</button><button class="btn" data-go="#/review?${sel ? 'subject=' + sel + '&' : ''}browse=1">Browse all</button></div></div>
       <div class="pill-nav"><button class="${!sel ? 'active' : ''}" data-go="#/review">All (${LQ.dueCards().length} due)</button>${subs.map(s => `<button class="${sel === s.id ? 'active' : ''}" data-go="#/review?subject=${s.id}">${s.icon} ${esc(s.short)} (${LQ.dueCards({ subject: s.id }).length})</button>`).join('')}</div>
       <div class="row" style="margin-bottom:14px"><span class="chip">${all.length} cards</span><span class="chip">${due} due</span><span class="chip">${fresh} new</span><span class="spacer"></span>
+        <button class="btn small ${LQ.state.settings.typeAnswers ? 'primary' : ''}" id="typeToggle" title="Write each answer before you see it">${LQ.state.settings.typeAnswers ? '✓ Typing answers' : '⌨ Type answers'}</button>
         <button class="btn small ${p.cram ? 'primary' : ''}" data-go="#/review?${sel ? 'subject=' + sel + '&' : ''}${p.cram ? '' : 'cram=1'}">${p.cram ? '✓ Cram mode' : 'Cram mode (pre-exam)'}</button></div>
       ${p.browse ? browseTable(all) : `<div id="session"></div>`}
     </div>`;
@@ -130,6 +151,7 @@
   }
   LQ.after.review = function (p) {
     $('#newCard').onclick = () => LQ.addCustomCard(p.subject || LQ.defaultSubject(), '');
+    $('#typeToggle').onclick = () => { LQ.state.settings.typeAnswers = !LQ.state.settings.typeAnswers; LQ.save(); LQ.rerender(); };
     const el = $('#session');
     if (el) LQ.mountCardSession(el, { subject: p.subject, cram: !!p.cram });
   };
