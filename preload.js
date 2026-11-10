@@ -25,6 +25,21 @@ contextBridge.exposeInMainWorld('lq', {
     openPage: () => ipcRenderer.invoke('update:page'),
     onProgress: cb => ipcRenderer.on('update:progress', (_e, p) => cb(p))
   },
+  builder: {
+    get: () => ipcRenderer.invoke('builder:get'),
+    setKey: key => ipcRenderer.invoke('builder:setKey', key),
+    root: semester => ipcRenderer.invoke('builder:root', semester),
+    pick: opts => ipcRenderer.invoke('builder:pick', opts),
+    scan: (relDir, semester) => ipcRenderer.invoke('builder:scan', relDir, semester),
+    describe: (files, semester) => ipcRenderer.invoke('builder:describe', files, semester),
+    run: job => ipcRenderer.invoke('builder:run', job),
+    cancel: id => ipcRenderer.invoke('builder:cancel', id),
+    list: () => ipcRenderer.invoke('builder:list'),
+    save: course => ipcRenderer.invoke('builder:save', course),
+    remove: id => ipcRenderer.invoke('builder:remove', id),
+    openFolder: () => ipcRenderer.invoke('builder:openFolder'),
+    onProgress: cb => ipcRenderer.on('builder:progress', (_e, p) => cb(p))
+  },
   users: {
     list: () => ipcRenderer.invoke('users:list'),
     create: (name, pin) => ipcRenderer.invoke('users:create', name, pin),

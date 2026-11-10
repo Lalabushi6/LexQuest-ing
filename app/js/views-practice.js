@@ -352,6 +352,9 @@
     const RUBRIC = rubricFor(q.subject);
     const mins = q.minutes || Math.round(q.marks * ((D.subjects[q.subject] || {}).minutesPerMark || 1.8));
     const prev = LQ.state.practice[qid];
+    // An answer in progress is kept as a draft, so leaving the page never loses it.
+    const drafts = LQ.state.drafts = LQ.state.drafts || {};
+    const startText = drafts[qid] != null ? drafts[qid] : prev ? prev.answer : '';
     root.innerHTML = `<a href="#/papers?subject=${q.subject}" class="muted">← Past papers</a>
       <h1>📝 ${esc(q.paper)} · ${q.marks} marks</h1>
       ${q.oldLaw ? `<div class="callout warn">This was set under <strong>older law</strong>. Answer with the current section numbers: ${esc(q.mapNote || 'see Bare Acts')}.</div>` : ''}
@@ -359,12 +362,12 @@
       <div class="card prose">${LQ.md(q.text)}</div>
       <div class="row" style="margin:14px 0">${q.file ? `<button class="btn small" data-open="${esc(q.file)}">📄 Open the original paper</button>` : ''}<span class="chip">Suggested time: ${mins} min</span><button class="btn primary" id="startQ">▶ Start timer</button><span id="qClock" class="stat" style="font-size:1.3em"></span></div>
       <div class="callout tip">${LQ.md(hintFor(q.subject)).replace(/^<p>|<\/p>$/g, '')}</div>
-      <div class="answer-box"><textarea id="ans" placeholder="Write your answer here…">${esc(prev ? prev.answer : '')}</textarea></div>
-      <div class="row between" style="margin-top:8px"><span class="wordcount" id="ansCount">${wordCount(prev ? prev.answer : '')} words</span><button class="btn primary" id="submitQ">Submit & see the model outline</button></div>
+      <div class="answer-box"><textarea id="ans" placeholder="Write your answer here…">${esc(startText)}</textarea></div>
+      <div class="row between" style="margin-top:8px"><span class="wordcount" id="ansCount">${wordCount(startText)} words${drafts[qid] != null ? ' · draft kept' : ''}</span><button class="btn primary" id="submitQ">Submit & see the model outline</button></div>
       <div id="outline"></div>`;
     let end = 0, h = null;
     const ans = $('#ans', root);
-    ans.oninput = () => { $('#ansCount', root).textContent = wordCount(ans.value) + ' words'; };
+    ans.oninput = () => { $('#ansCount', root).textContent = wordCount(ans.value) + ' words · draft kept'; drafts[qid] = ans.value; LQ.save(); };
     $('#startQ', root).onclick = () => {
       end = Date.now() + mins * 60000;
       clearInterval(h);
@@ -380,6 +383,7 @@
         const score = $$('[data-rub]', root).filter(x => x.checked).length;
         const first = !LQ.state.practice[qid];
         LQ.state.practice[qid] = { answer: ans.value, score, of: RUBRIC.length, date: Date.now() };
+        delete drafts[qid];
         if (first) { LQ.questProgress('answer', 1); LQ.addXP(20 + score * 5, 'Exam answer written'); }
         LQ.save();
         $('#gradeNote', root).textContent = `${score}/${RUBRIC.length} — ${score >= 5 ? 'Top-grade shape. 👏' : score >= 3 ? 'Good base; the unticked boxes are your next marks.' : 'Use the outline to rewrite it once — rewriting is where answers improve.'}`;
@@ -392,8 +396,12 @@
     if (p.run) return `<div class="page" id="mockRoot"></div>`;
     const past = LQ.state.mocks.slice().reverse();
     const ready = Object.values(D.subjects).filter(s => (D.pastQuestions || []).some(q => q.subject === s.id));
+    const open = LQ.state.mockRun && D.subjects[LQ.state.mockRun.subject] ? LQ.state.mockRun : null;
+    const left = open ? open.end - Date.now() : 0;
     return `<div class="page"><h1>⏱️ Mock exam</h1>
       <p class="muted">A "boss battle": a fact-pattern question plus short questions drawn from real past papers, under a timer, then marked against the model outlines.</p>
+      ${open ? `<div class="callout tip">You have an unfinished ${esc(D.subjects[open.subject].short)} mock (${left > 0 ? `${LQ.fmtClock(left)} left` : 'time is up; you can still submit it'}). Your answers were kept.
+        <div class="row" style="margin-top:8px"><button class="btn primary small" data-go="#/mock?run=1&resume=1">Resume it</button><button class="btn small" id="mDropRun">Abandon it</button></div></div>` : ''}
       ${ready.length ? `<div class="card"><div class="grid g3">
         <label class="field"><span>Subject</span><select id="mSubj">${ready.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
         <label class="field"><span>Scope</span><select id="mScope"><option value="mid">Midterm topics only</option><option value="all">Whole course</option></select></label>
@@ -405,47 +413,71 @@
   LQ.after.mock = function (p) {
     if (p.run) return runMock(p);
     const go = $('#mGo');
-    if (go) go.onclick = () => { location.hash = `#/mock?run=1&subject=${$('#mSubj').value}&scope=${$('#mScope').value}&dur=${$('#mDur').value}`; };
+    if (go) go.onclick = () => {
+      if (LQ.state.mockRun && !confirm('Start a new mock? The unfinished one will be abandoned.')) return;
+      LQ.state.mockRun = null;
+      location.hash = `#/mock?run=1&subject=${$('#mSubj').value}&scope=${$('#mScope').value}&dur=${$('#mDur').value}`;
+    };
+    const drop = $('#mDropRun');
+    if (drop) drop.onclick = () => { if (!confirm('Abandon the unfinished mock and its answers?')) return; LQ.state.mockRun = null; LQ.save(); LQ.rerender(); };
   };
   function runMock(p) {
     const root = $('#mockRoot');
-    const RUBRIC = rubricFor(p.subject);
-    const placeholder = (D.subjects[p.subject] || {}).answerPlaceholder || 'Issue → Rule → Application → Conclusion';
-    const all = (D.pastQuestions || []).filter(q => q.subject === p.subject && !q.offSyllabus);
-    const mid = all.filter(q => q.midterm);
-    const pool = p.scope === 'mid' && mid.length ? mid : all;
-    // A subject can declare its real paper shape per duration: [[marks, how many], ...].
-    const pattern = ((D.subjects[p.subject] || {}).mockPattern || {})[p.dur];
+    // A mock in progress (its questions, deadline and answers) is kept in the profile, so leaving the
+    // page or closing the app doesn't lose it; "Resume" on the Mock page brings it back.
+    let run = p.resume && LQ.state.mockRun && D.subjects[LQ.state.mockRun.subject] ? LQ.state.mockRun : null;
     let paper;
-    if (pattern) paper = pattern.flatMap(([m, k]) => shuffle(pool.filter(q => q.marks === m)).slice(0, k));
+    if (run) paper = run.qs.map(id => (D.pastQuestions || []).find(q => q.id === id)).filter(Boolean);
     else {
-      const bigs = shuffle(pool.filter(q => q.marks >= 10));
-      const smalls = shuffle(pool.filter(q => q.marks < 10));
-      // Subjects with few short questions get more long ones instead.
-      const nSmall = Math.min(smalls.length, +p.dur >= 180 ? 4 : 2);
-      const nBig = +p.dur >= 180 ? Math.max(1, 4 - nSmall) : +p.dur >= 90 ? (nSmall >= 2 ? 1 : 2) : 1;
-      paper = bigs.slice(0, nBig).concat(smalls.slice(0, nSmall));
+      if (!D.subjects[p.subject]) { root.innerHTML = '<div class="empty">Choose a subject on the Mock page.</div>'; return; }
+      const all = (D.pastQuestions || []).filter(q => q.subject === p.subject && !q.offSyllabus);
+      const mid = all.filter(q => q.midterm);
+      const pool = p.scope === 'mid' && mid.length ? mid : all;
+      // A subject can declare its real paper shape per duration: [[marks, how many], ...].
+      const pattern = ((D.subjects[p.subject] || {}).mockPattern || {})[p.dur];
+      if (pattern) paper = pattern.flatMap(([m, k]) => shuffle(pool.filter(q => q.marks === m)).slice(0, k));
+      else {
+        const bigs = shuffle(pool.filter(q => q.marks >= 10));
+        const smalls = shuffle(pool.filter(q => q.marks < 10));
+        // Subjects with few short questions get more long ones instead.
+        const nSmall = Math.min(smalls.length, +p.dur >= 180 ? 4 : 2);
+        const nBig = +p.dur >= 180 ? Math.max(1, 4 - nSmall) : +p.dur >= 90 ? (nSmall >= 2 ? 1 : 2) : 1;
+        paper = bigs.slice(0, nBig).concat(smalls.slice(0, nSmall));
+      }
+      if (paper.length) {
+        run = LQ.state.mockRun = { subject: p.subject, dur: +p.dur, qs: paper.map(q => q.id), end: Date.now() + (+p.dur) * 60000, answers: {} };
+        LQ.save(true);
+        // From here on this page is the saved mock, so a re-render resumes it instead of drawing a new paper.
+        history.replaceState(null, '', '#/mock?run=1&resume=1');
+      }
     }
     if (!paper.length) { root.innerHTML = '<div class="empty">Not enough questions in the bank for this subject yet.</div>'; return; }
-    const end = Date.now() + (+p.dur) * 60000;
-    root.innerHTML = `<div class="row between"><h1>⚔️ Mock — ${esc(D.subjects[p.subject].short)}</h1><span class="stat" id="mClock"></span></div>
-      <p class="muted">Answer every question below. Your work autosaves. Press Submit when time is up (or earlier).</p>
-      ${paper.map((q, i) => `<div class="card" style="margin-bottom:14px"><h3>Q${i + 1} · ${q.marks} marks <small class="muted">(${esc(q.paper)})</small></h3><div class="prose">${LQ.md(q.text)}</div><textarea data-mq="${q.id}" style="min-height:${q.marks >= 10 ? 320 : 160}px" placeholder="${esc(placeholder)}"></textarea></div>`).join('')}
+    const subject = run.subject;
+    const RUBRIC = rubricFor(subject);
+    const placeholder = (D.subjects[subject] || {}).answerPlaceholder || 'Issue → Rule → Application → Conclusion';
+    const end = run.end;
+    root.innerHTML = `<div class="row between"><h1>⚔️ Mock — ${esc(D.subjects[subject].short)}</h1><span class="stat" id="mClock"></span></div>
+      <p class="muted">Answer every question below. Your answers are saved as you type, so you can leave and resume from the Mock page. Press Submit when time is up (or earlier).</p>
+      ${paper.map((q, i) => `<div class="card" style="margin-bottom:14px"><h3>Q${i + 1} · ${q.marks} marks <small class="muted">(${esc(q.paper)})</small></h3><div class="prose">${LQ.md(q.text)}</div><textarea data-mq="${q.id}" style="min-height:${q.marks >= 10 ? 320 : 160}px" placeholder="${esc(placeholder)}">${esc(run.answers[q.id] || '')}</textarea></div>`).join('')}
       <button class="btn primary" id="mSubmit">Submit paper</button><div id="mResult"></div>`;
+    $$('[data-mq]', root).forEach(t => t.oninput = () => { run.answers[t.dataset.mq] = t.value; LQ.save(); });
     const h = setInterval(() => { const c = $('#mClock'); if (!c) return clearInterval(h); const left = end - Date.now(); c.textContent = left > 0 ? LQ.fmtClock(left) : '⏰ Time — finish your sentence'; if (left <= 0 && !c.dataset.rang) { c.dataset.rang = 1; LQ.sound('break'); } }, 500);
     $('#mSubmit').onclick = () => {
       clearInterval(h);
       $('#mResult').innerHTML = paper.map((q, i) => `<div class="card" style="margin-top:14px"><h3>Q${i + 1} model outline</h3><div class="prose">${LQ.md(q.outline || '')}</div><div class="rubric">${RUBRIC.map(([k, l]) => `<label><input type="checkbox" data-mr="${q.id}"> ${esc(l)}</label>`).join('')}</div></div>`).join('') + `<button class="btn primary" id="mSave" style="margin-top:12px">Save my score</button>`;
-      $('#mSave').onclick = () => {
+      $('#mSave').onclick = e => {
+        e.currentTarget.disabled = true;
         const score = $$('[data-mr]').filter(x => x.checked).length;
         const words = $$('[data-mq]').reduce((a, t) => a + wordCount(t.value), 0);
-        LQ.state.mocks.push({ subject: p.subject, date: Date.now(), score, of: paper.length * RUBRIC.length, words, qs: paper.map(q => q.id) });
+        LQ.state.mocks.push({ subject, date: Date.now(), score, of: paper.length * RUBRIC.length, words, qs: paper.map(q => q.id) });
+        LQ.state.mockRun = null;
         LQ.day().mocks += 1;
         LQ.addXP(60 + score * 4, 'Mock exam conquered ⚔️');
         LQ.celebrate(); LQ.save();
         location.hash = '#/mock';
       };
-      window.scrollTo(0, document.body.scrollHeight);
+      // The page scrolls inside #main, not the window.
+      $('#mResult').scrollIntoView({ behavior: LQ.state.settings.reduceMotion ? 'auto' : 'smooth', block: 'start' });
     };
   }
 })();

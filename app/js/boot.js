@@ -26,7 +26,15 @@
   }
   current = null;
   window.removeEventListener('error', onError);
+
+  // Courses made with the Course Builder are JSON (data, not code), applied after the packs.
+  await load('js/course-format.js');
+  window.LQ_BUILT = [];
+  if (window.lq && window.lq.builder) {
+    try { window.LQ_BUILT = await window.lq.builder.list(); } catch { window.LQ_BUILT = []; }
+    results.push(...window.LQ_COURSE.apply(window.LQ_DATA, window.LQ_BUILT));
+  }
   window.LQ_DATA.packs = results; // shown in Settings, so a broken pack can be found
 
-  for (const file of ['core', 'planner', 'views-learn', 'views-practice', 'views-misc', 'profiles', 'updates', 'app']) await load(`js/${file}.js`);
+  for (const file of ['core', 'planner', 'views-learn', 'views-practice', 'views-misc', 'views-builder', 'search', 'profiles', 'updates', 'app']) await load(`js/${file}.js`);
 })();

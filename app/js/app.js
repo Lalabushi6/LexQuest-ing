@@ -3,7 +3,7 @@
 (function () {
   const { $, $$, esc, todayKey, fmtDate } = LQ.h;
   const D = window.LQ_DATA;
-  const CRUMBS = { home: 'Today', subjects: 'Subjects', semesters: 'Semesters', subject: 'Subject', topic: 'Topic', review: 'Flashcards', palace: 'Memory palace', papers: 'Past papers', mock: 'Mock exam', timetable: 'Timetable', notes: 'My notes', statute: 'Bare acts', guide: 'Memory guide', trophies: 'Trophies', settings: 'Settings' };
+  const CRUMBS = { home: 'Today', subjects: 'Subjects', semesters: 'Semesters', subject: 'Subject', topic: 'Topic', review: 'Flashcards', palace: 'Memory palace', papers: 'Past papers', mock: 'Mock exam', timetable: 'Timetable', notes: 'My notes', statute: 'Bare acts', guide: 'Memory guide', trophies: 'Trophies', settings: 'Settings', builder: 'Course builder' };
 
   function parse() {
     const raw = location.hash.replace(/^#\/?/, '');
@@ -148,14 +148,17 @@
   document.addEventListener('keydown', e => {
     const typing = /input|textarea|select/i.test(document.activeElement.tagName);
     if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); LQ.parkThought(); return; }
+    if (e.ctrlKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); LQ.openSearch(); return; }
     if (e.key === 'Escape' && $('#modalRoot').innerHTML) { LQ.closeModal(); return; }
     if (typing || $('#modalRoot').innerHTML) return;
+    if (e.key === '/' && !LQ._keys) { e.preventDefault(); LQ.openSearch(); return; }
     if (e.key === 'f' || e.key === 'F') $('#app').classList.toggle('focus');
     if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey) { const next = $('#stepNext'); if (next) next.click(); }
   });
 
   $('#toggleSidebar').onclick = () => $('#app').classList.toggle('focus');
   $('#parkingBtn').onclick = () => LQ.parkThought();
+  $('#searchBtn').onclick = () => LQ.openSearch();
   window.addEventListener('hashchange', render);
 
   function onboarding() {

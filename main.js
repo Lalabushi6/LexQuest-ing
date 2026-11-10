@@ -1,15 +1,17 @@
 // LexQuest — Electron main process.
 // Portable: everything is stored in "LexQuest Data" next to the .exe. Each profile keeps its own
 // progress in users/<id>/progress.json. Courses are not part of the app: they load from the
-// "LexQuest Content" folder beside the .exe, so updating the app never touches them. Course files are
-// opened relative to the active semester's folder (the folder the .exe sits in for the current
-// semester, unless changed in Settings).
+// "LexQuest Content" folder beside the .exe, so updating the app never touches them.
+// Course files (readings, cases, bare acts) are opened relative to the active semester's folder:
+// a "Semester N" folder next to the app's folder (e.g. Documents\LexQuest beside Documents\Semester 5),
+// or the app's own folder if the .exe sits inside the semester folder, unless changed in Settings.
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const updater = require('./updater');
+const builder = require('./builder');
 
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
 const baseDir = isPortable ? process.env.PORTABLE_EXECUTABLE_DIR : path.resolve(__dirname, '..');
@@ -102,11 +104,18 @@ function semesterRoot(n = activeSemester) {
   const cfg = readJson(configFile, {});
   const custom = (cfg.roots || {})[n] || (n === homeSemester ? cfg.semesterRoot : null);
   if (custom && fs.existsSync(custom)) return custom;
-  return n === homeSemester ? baseDir : path.join(path.dirname(baseDir), `Semester ${n}`);
+  // The usual layout keeps the app and the course files side by side.
+  const sibling = path.join(path.dirname(baseDir), `Semester ${n}`);
+  if (fs.existsSync(sibling)) return sibling;
+  return n === homeSemester ? baseDir : sibling;
 }
 
+// A path from a course pack, resolved inside the semester folder. Anything that would escape the
+// folder ("..\..") resolves to null and is treated as missing.
 function resolveInRoot(rel) {
-  return path.join(semesterRoot(), rel.replace(/[\\/]+/g, path.sep));
+  const root = path.resolve(semesterRoot());
+  const p = path.resolve(root, String(rel || '').replace(/[\\/]+/g, path.sep));
+  return p === root || p.startsWith(root + path.sep) ? p : null;
 }
 
 function createWindow() {
@@ -259,23 +268,23 @@ ipcMain.handle('app:info', () => ({
 
 ipcMain.handle('fs:open', async (_e, rel) => {
   const p = resolveInRoot(rel);
-  if (!fs.existsSync(p)) return { ok: false, error: 'Not found: ' + rel };
+  if (!p || !fs.existsSync(p)) return { ok: false, error: 'Not found: ' + rel };
   const err = await shell.openPath(p);
   return { ok: !err, error: err || null };
 });
 
 ipcMain.handle('fs:reveal', (_e, rel) => {
   const p = resolveInRoot(rel);
-  if (fs.existsSync(p)) shell.showItemInFolder(p);
+  if (p && fs.existsSync(p)) shell.showItemInFolder(p);
   else shell.openPath(semesterRoot());
   return true;
 });
 
-ipcMain.handle('fs:exists', (_e, rels) => rels.map(r => fs.existsSync(resolveInRoot(r))));
+ipcMain.handle('fs:exists', (_e, rels) => rels.map(r => { const p = resolveInRoot(r); return !!p && fs.existsSync(p); }));
 
 ipcMain.handle('fs:list', (_e, relDir) => {
   const p = resolveInRoot(relDir);
-  if (!fs.existsSync(p)) return [];
+  if (!p || !fs.existsSync(p)) return [];
   return fs.readdirSync(p, { withFileTypes: true })
     .filter(d => d.isFile())
     .map(d => d.name);
@@ -294,7 +303,9 @@ ipcMain.handle('data:export', async (_e, payload, suggestedName, kind) => {
   const filters = kind === 'md'
     ? [{ name: 'Markdown', extensions: ['md'] }]
     : kind === 'html' ? [{ name: 'Web page', extensions: ['html'] }] : [{ name: 'JSON', extensions: ['json'] }];
-  const res = await dialog.showSaveDialog({ title: 'Export', defaultPath: path.join(semesterRoot(), suggestedName), filters });
+  // Backups belong with the app's data; notes go to the semester folder.
+  const startDir = kind === 'json' ? dataDir : semesterRoot();
+  const res = await dialog.showSaveDialog({ title: 'Export', defaultPath: path.join(startDir, suggestedName), filters });
   if (res.canceled || !res.filePath) return null;
   fs.writeFileSync(res.filePath, payload, 'utf8');
   return res.filePath;
@@ -337,6 +348,7 @@ ipcMain.handle('data:import', async () => {
 });
 
 updater.register({ configFile, readJson, writeJsonAtomic, getWindow: () => mainWindow });
+builder.register({ configFile, readJson, writeJsonAtomic, contentDir, semesterRoot: n => semesterRoot(n), getWindow: () => mainWindow });
 
 app.whenReady().then(() => {
   migrateToProfiles();

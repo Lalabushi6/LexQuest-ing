@@ -160,9 +160,9 @@
         <p class="muted">${deg.semesters} semesters. Each semester has its own courses, exams, timetable, flashcards, palaces and past papers. Your progress in every semester is kept when you switch.</p></div>
       <div class="grid g3">${cards}</div>
       <div class="card" style="margin-top:18px"><h2>Adding a semester</h2><ol>
-        <li>Put a course pack for each course in the <code>LexQuest Content</code> folder beside the app, with <code>semester: N</code> on each subject. Its courses then appear on this page.</li>
-        <li>Optionally, make a <code>Semester N</code> folder next to the folder the app is in, with your readings and bare acts inside. A course’s links open files from there, and you can point it elsewhere in Settings while that semester is active.</li>
-      </ol><button class="btn" id="openContent">📂 Open the content folder</button></div></div>`;
+        <li>Make a <code>Semester N</code> folder next to the app’s folder (for example <code>Documents\\Semester 6</code> beside <code>Documents\\LexQuest</code>), with a folder per course holding its manual, readings and bare acts. A course’s links open files from there; you can point it elsewhere in Settings while that semester is active.</li>
+        <li>Then either open the <strong>Course Builder</strong> and build each course from its manual (and, week by week, its readings), or put a course pack for each course in the <code>LexQuest Content</code> folder beside the app, with <code>semester: N</code> on each subject.</li>
+      </ol><div class="row"><button class="btn primary" data-go="#/builder">🛠️ Open the Course Builder</button><button class="btn" id="openContent">📂 Open the content folder</button></div></div></div>`;
   };
   LQ.after.semesters = function () {
     $('#degName').onchange = e => { LQ.state.settings.degree = e.target.value.trim(); LQ.save(); };

@@ -4,6 +4,7 @@
   const { $, $$, esc, todayKey, daysBetween, fmtDate, wordCount } = LQ.h;
   const D = window.LQ_DATA;
   LQ.views = LQ.views || {};
+  const daysWord = n => (n === 1 ? '1 day' : `${n} days`);
 
   /* ---------- Today ---------- */
   LQ.views.home = function home() {
@@ -27,7 +28,7 @@
             <h1>${hello}${s.settings.name ? ', ' + esc(s.settings.name) : ''} 👋</h1>
             <p class="muted">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(li.rank)} · Level ${li.lvl}</p>
           </div>
-          ${next ? `<div style="text-align:right"><div class="stat">${daysBetween(today, next.date) === 0 ? 'Today' : daysBetween(today, next.date) + ' days'}</div><div class="stat-label">to ${esc(next.title)} (${fmtDate(next.date)})</div></div>` : ''}
+          ${next ? `<div style="text-align:right"><div class="stat">${daysBetween(today, next.date) === 0 ? 'Today' : daysWord(daysBetween(today, next.date))}</div><div class="stat-label">to ${esc(next.title)} (${fmtDate(next.date)})</div></div>` : ''}
         </div>
         <div class="row" style="margin-top:14px">
           <button class="btn primary" data-act="sprint">▶ Start a sprint</button>
@@ -39,6 +40,7 @@
       </div>
 
       ${LQ.noCourses()}
+      ${LQ.builderNudge ? LQ.builderNudge() : ''}
       <div class="grid g4">
         <div class="card"><div class="stat">${d.sprints}/${s.settings.dailyGoal}</div><div class="stat-label">sprints today</div><div class="progress" style="margin-top:8px"><i style="width:${Math.min(100, d.sprints / s.settings.dailyGoal * 100)}%"></i></div></div>
         <div class="card"><div class="stat">${due}</div><div class="stat-label">cards due now</div></div>
@@ -166,7 +168,7 @@
     } else {
       body = `<div class="card prose">${LQ.md(s.about || '')}</div>
         <div class="section-title"><h2>Exams</h2></div>
-        <div class="list">${exams.map(e => `<div class="item"><span>🗓️</span><span class="grow"><strong>${esc(e.title)}</strong> — ${fmtDate(e.date)}${e.note ? ` · ${esc(e.note)}` : ''}</span><span class="chip">${e.date >= today ? daysBetween(today, e.date) + ' days' : 'done'}</span></div>`).join('')}</div>`;
+        <div class="list">${exams.map(e => `<div class="item"><span>🗓️</span><span class="grow"><strong>${esc(e.title)}</strong> — ${fmtDate(e.date)}${e.note ? ` · ${esc(e.note)}` : ''}</span><span class="chip">${e.date > today ? daysWord(daysBetween(today, e.date)) : e.date === today ? 'today' : 'done'}</span></div>`).join('')}</div>`;
     }
     return `<div class="page">
       <div class="hero"><div class="row between"><div><h1>${s.icon} ${esc(s.name)}</h1><p class="muted">${esc(s.blurb || '')}</p></div>
@@ -180,7 +182,7 @@
     const f = r.file;
     const st = f ? LQ.fileCache[f] : undefined;
     const status = !f ? '<span class="chip no">Not in folder yet</span>' : st === true ? '<span class="chip ok">In folder</span>' : st === false ? '<span class="chip no">Missing</span>' : '<span class="chip">Checking…</span>';
-    return `<tr><td>${r.kind === 'case' ? '⚖️' : r.kind === 'act' ? '📜' : '📄'} ${esc(r.title)}</td><td><a href="#/topic/${r.subjectId || ''}${r.topicId ? '' : ''}" data-topicid="${r.topicId}">${esc(r.topic)}</a></td><td>${r.tier ? `<span class="chip t${r.tier}">${r.tier}</span>` : ''}</td><td>${status}</td><td>${f ? `<button class="btn small" data-open="${esc(f)}">Open</button>` : ''}</td></tr>`;
+    return `<tr><td>${r.kind === 'case' ? '⚖️' : r.kind === 'act' ? '📜' : '📄'} ${esc(r.title)}</td><td><a href="#/subjects" data-topicid="${esc(r.topicId)}">${esc(r.topic)}</a></td><td>${r.tier ? `<span class="chip t${r.tier}">${r.tier}</span>` : ''}</td><td>${status}</td><td>${f ? `<button class="btn small" data-open="${esc(f)}">Open</button>` : ''}</td></tr>`;
   }
   LQ.readingRow = readingRow;
 
@@ -521,7 +523,8 @@
   function highlight(text, q) {
     const safe = esc(text);
     if (!q || q.length < 3) return safe;
-    return safe.replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>');
+    // Match against the escaped text, so a query with & or < still highlights.
+    return safe.replace(new RegExp('(' + esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>');
   }
   LQ.after.statute = function (p) {
     const box = $('#secSearch');
