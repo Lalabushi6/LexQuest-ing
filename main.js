@@ -118,12 +118,30 @@ function resolveInRoot(rel) {
   return p === root || p.startsWith(root + path.sep) ? p : null;
 }
 
+// Full screen covers the whole display, taskbar and title bar included. F11 toggles it from
+// anywhere (even a dialog or the sign-in screen), and the app reopens the way it was left.
+function watchFullScreen(win) {
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown' || input.key !== 'F11' || input.alt || input.control || input.meta || input.shift) return;
+    e.preventDefault();
+    if (!input.isAutoRepeat) win.setFullScreen(!win.isFullScreen());
+  });
+  const changed = () => {
+    const on = win.isFullScreen();
+    writeJsonAtomic(configFile, { ...readJson(configFile, {}), fullscreen: on });
+    win.webContents.send('win:fullscreen-changed', on);
+  };
+  win.on('enter-full-screen', changed);
+  win.on('leave-full-screen', changed);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 880,
     minWidth: 980,
     minHeight: 640,
+    fullscreen: !!readJson(configFile, {}).fullscreen,
     backgroundColor: '#14161c',
     title: 'LexQuest',
     autoHideMenuBar: true,
@@ -137,6 +155,7 @@ function createWindow() {
     }
   });
   mainWindow.loadFile(path.join(__dirname, 'app', 'index.html'));
+  watchFullScreen(mainWindow);
   // The page sets its own document title; keep the profile name in the window title instead.
   mainWindow.on('page-title-updated', e => { e.preventDefault(); setTitle(); });
   // Links in content open in the system browser, never inside the app.
@@ -265,6 +284,13 @@ ipcMain.handle('app:info', () => ({
   portable: isPortable,
   version: app.getVersion()
 }));
+
+// Called with true or false it switches full screen; with nothing it just reports it.
+ipcMain.handle('win:fullscreen', (_e, on) => {
+  if (!mainWindow) return false;
+  if (typeof on === 'boolean') mainWindow.setFullScreen(on);
+  return mainWindow.isFullScreen();
+});
 
 ipcMain.handle('fs:open', async (_e, rel) => {
   const p = resolveInRoot(rel);

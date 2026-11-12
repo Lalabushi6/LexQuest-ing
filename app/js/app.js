@@ -150,11 +150,36 @@
     if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); LQ.parkThought(); return; }
     if (e.ctrlKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); LQ.openSearch(); return; }
     if (e.key === 'Escape' && $('#modalRoot').innerHTML) { LQ.closeModal(); return; }
+    if (e.key === 'Escape' && LQ.isFullscreen) { LQ.setFullscreen(false); return; }
     if (typing || $('#modalRoot').innerHTML) return;
     if (e.key === '/' && !LQ._keys) { e.preventDefault(); LQ.openSearch(); return; }
     if (e.key === 'f' || e.key === 'F') $('#app').classList.toggle('focus');
     if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey) { const next = $('#stepNext'); if (next) next.click(); }
   });
+
+  // Full screen: the whole display, with no title bar or taskbar. In the desktop app the window
+  // does it (F11 is caught there, and the choice is remembered); in a browser preview the page does.
+  LQ.isFullscreen = false;
+  function paintFullscreen(on) {
+    LQ.isFullscreen = !!on;
+    $('#app').classList.toggle('fullscreen', LQ.isFullscreen);
+    const b = $('#fsBtn');
+    b.title = LQ.isFullscreen ? 'Leave full screen (F11 or Esc)' : 'Full screen (F11)';
+    b.setAttribute('aria-pressed', String(LQ.isFullscreen));
+    const s = $('#sFullscreen'); if (s) s.textContent = LQ.isFullscreen ? 'Leave full screen' : 'Go full screen';
+  }
+  LQ.setFullscreen = function setFullscreen(on) {
+    if (window.lq && window.lq.fullscreen) return window.lq.fullscreen.set(on).then(paintFullscreen);
+    const el = document.documentElement;
+    if (on && !document.fullscreenElement && el.requestFullscreen) return el.requestFullscreen().catch(() => LQ.toast('Full screen isn’t available here'));
+    if (!on && document.fullscreenElement) return document.exitFullscreen();
+  };
+  LQ.toggleFullscreen = () => LQ.setFullscreen(!LQ.isFullscreen);
+  if (window.lq && window.lq.fullscreen) {
+    window.lq.fullscreen.onChange(paintFullscreen);
+    window.lq.fullscreen.get().then(paintFullscreen);
+  } else document.addEventListener('fullscreenchange', () => paintFullscreen(!!document.fullscreenElement));
+  $('#fsBtn').onclick = () => LQ.toggleFullscreen();
 
   $('#toggleSidebar').onclick = () => $('#app').classList.toggle('focus');
   $('#parkingBtn').onclick = () => LQ.parkThought();

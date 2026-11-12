@@ -101,6 +101,7 @@
 - **One micro-goal per sprint** ("notes on one case + its 6 cards"). Specific goals roughly double follow-through.
 - **Parking lot** (Ctrl+L): when a stray thought pops up, write it down and get back. You'll see it after the sprint.
 - **Focus mode** (press F): hides the menu so only the task is on screen.
+- **Full screen** (F11): the app takes the whole screen, with no taskbar, clock or notifications in view. F11 or Esc brings them back. Use it with Focus mode for nothing but the task.
 - **Breaks are part of the work.** Stand, water, look out of a window. No phone during breaks if you can manage it; it makes the next sprint harder to start.
 - **Two-minute rule:** if you're stuck, do the smallest possible next step — open the case card, write one cue.`],
     ['😴', 'Sleep, food and the night before', `- Memory is **consolidated during sleep**. An all-nighter trades tomorrow's recall for tonight's reading. Aim for 7+ hours, especially before exams.
@@ -194,7 +195,9 @@
         ${range('sBreak', 'Short break', 3, 15, 1, s.breakMin, ' min')}
         ${range('sLong', 'Long break (every 4th)', 10, 30, 5, s.longBreakMin, ' min')}
         ${range('sGoal', 'Daily sprint goal', 2, 16, 1, s.dailyGoal)}
-        ${range('sWords', 'Minimum summary words before the model summary unlocks', 30, 200, 10, s.notesMinWords)}</div>
+        ${range('sWords', 'Minimum summary words before the model summary unlocks', 30, 200, 10, s.notesMinWords)}
+        <div class="row" style="margin-top:12px"><button class="btn" id="sFullscreen">${LQ.isFullscreen ? 'Leave full screen' : 'Go full screen'}</button>
+          <span class="muted">F11 switches it from anywhere, Esc leaves, and LexQuest opens the way you left it. Press F for Focus mode, which hides the menu.</span></div></div>
 
       <div class="card" style="margin-top:14px"><h2>🃏 Flashcards</h2>
         ${range('sPer', 'Cards per session', 10, 120, 5, s.cardsPerSession)}
@@ -231,6 +234,7 @@
     $('#sMotion').onchange = e => set('reduceMotion', e.target.checked);
     $('#sConfetti').onchange = e => set('confetti', e.target.checked);
     $('#sSound').onchange = e => set('sound', e.target.checked);
+    $('#sFullscreen').onclick = () => LQ.toggleFullscreen();
     if (window.lq) {
       const info = await window.lq.info();
       $('#rootPath').textContent = info.semesterRoot; $('#dataPath').textContent = info.userDir || info.dataDir; $('#contentPath').textContent = info.contentDir;

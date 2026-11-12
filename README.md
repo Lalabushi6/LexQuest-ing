@@ -17,6 +17,7 @@ LexQuest comes with no courses. You build your own in the **Course Builder** fro
 - **Semesters** and **local profiles** with optional PINs
 - **Last-hour cheatsheets**, exportable to PDF
 - **Sprints, XP, streaks and trophies**
+- **Focus mode** (F) hides the menu, and **full screen** (F11, or the top-bar button) fills the whole display with no taskbar or title bar; the app reopens the way you left it
 - **Built-in updates** from this repository's GitHub Releases
 
 Sprints, your own flashcards, your own palaces, notes and profiles all work before you add a course.

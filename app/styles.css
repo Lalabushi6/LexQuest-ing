@@ -133,6 +133,11 @@ code { background: var(--chip); border-radius: 6px; padding: 1px 6px; }
 
 .icon-btn { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 10px; width: 38px; height: 38px; cursor: pointer; font-size: 1.05em; }
 .icon-btn:hover { border-color: var(--accent); }
+.fs-btn { display: inline-flex; align-items: center; justify-content: center; }
+.fs-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fs-btn .fs-exit, .app.fullscreen .fs-btn .fs-enter { display: none; }
+.app.fullscreen .fs-btn .fs-exit { display: block; }
+.app.fullscreen .fs-btn { border-color: var(--accent); }
 
 /* XP + sprint in the top bar */
 .xpbox { display: flex; align-items: center; gap: 10px; font-size: .88em; }

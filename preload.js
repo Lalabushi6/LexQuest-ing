@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('lq', {
   setSemester: (n, home) => ipcRenderer.invoke('sem:set', n, home),
   contentFiles: () => ipcRenderer.invoke('content:files'),
   openContentFolder: () => ipcRenderer.invoke('content:open'),
+  fullscreen: {
+    get: () => ipcRenderer.invoke('win:fullscreen'),
+    set: on => ipcRenderer.invoke('win:fullscreen', !!on),
+    onChange: cb => ipcRenderer.on('win:fullscreen-changed', (_e, on) => cb(on))
+  },
   update: {
     get: () => ipcRenderer.invoke('update:get'),
     set: change => ipcRenderer.invoke('update:set', change),
