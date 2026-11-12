@@ -363,6 +363,40 @@ mark { background: color-mix(in srgb, var(--warn) 45%, transparent); color: inhe
 .profile-chip { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--text); font-size: 1.1em; }
 .profile-chip .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- calendar ---------- */
+.small { font-size: .85em; }
+.k-exam { --ev: var(--bad); } .k-plan { --ev: var(--accent); } .k-recall { --ev: var(--accent2); }
+.k-class { --ev: var(--good); } .k-deadline { --ev: var(--warn); } .k-study { --ev: #4dd0e1; } .k-other { --ev: var(--muted); }
+.k-google { --ev: var(--faint); }
+.cal-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; margin-top: 12px; align-items: start; }
+@media (max-width: 1100px) { .cal-wrap { grid-template-columns: minmax(0, 1fr); } }
+.cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cal-nav h2 { margin: 0; min-width: 10em; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dow { font-size: .78em; font-weight: 700; color: var(--muted); text-align: center; padding: 4px 0; }
+.cal-cell { display: flex; flex-direction: column; gap: 2px; align-items: stretch; min-height: 92px; padding: 5px; text-align: left; font: inherit; color: var(--text);
+  background: var(--panel2); border: 1px solid transparent; border-radius: 10px; cursor: pointer; overflow: hidden; }
+.cal-cell:hover { border-color: var(--line); }
+.cal-cell.out { opacity: .45; }
+.cal-cell.past { background: color-mix(in srgb, var(--panel2) 60%, transparent); }
+.cal-cell.today .cal-num { background: var(--accent); color: var(--bg); }
+.cal-cell.sel { border-color: var(--accent); }
+.cal-cell.has-exam { box-shadow: inset 0 3px 0 var(--bad); }
+.cal-num { align-self: flex-start; font-size: .82em; font-weight: 700; min-width: 1.9em; padding: 1px 6px; border-radius: 999px; text-align: center; }
+.cal-chip { display: block; font-size: .74em; line-height: 1.35; padding: 1px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: color-mix(in srgb, var(--ev) 22%, transparent); border-left: 3px solid var(--ev); color: var(--text); }
+.cal-chip b { font-weight: 700; }
+.cal-more { font-size: .72em; color: var(--muted); padding-left: 4px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cal-legend .cal-chip { display: inline-block; }
+.cal-day h3 { margin: 0; }
+.cal-event { border-left: 3px solid var(--ev); padding: 8px 10px; margin-top: 10px; background: var(--panel2); border-radius: 8px; }
+.cal-details { white-space: pre-wrap; font-size: .88em; margin-top: 6px; color: var(--muted); }
+.cal-link { display: inline-block; margin-top: 6px; font-size: .86em; }
+.cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--ev); }
+.gc-steps li { margin-bottom: 6px; }
+#gcalCard label.row { margin: 4px 0; }
+
 /* ---------- semesters ---------- */
 .sem-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: calc(100% - 8px); margin: 0 4px 12px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
 .sem-chip:hover { border-color: var(--accent); }

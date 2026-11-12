@@ -14,6 +14,7 @@ LexQuest comes with no courses. You build your own in the **Course Builder** fro
 - **Memory palaces**, walked forwards and backwards
 - **Past papers and timed mock exams**, with model outlines and self-marking
 - **An adaptive timetable:** topic blocks you skip are split up and spread over the days before that subject's next exam
+- **A calendar** of exams, the study plan, spaced-recall checks and your own events (with weekly repeats). Export it as an `.ics` file, or connect **Google Calendar**: LexQuest keeps a "LexQuest" calendar there up to date and shows your Google events beside its own. It needs a free Google Cloud OAuth client of your own (the Calendar page walks you through it), and it only ever writes to the calendar it creates
 - **Semesters** and **local profiles** with optional PINs
 - **Last-hour cheatsheets**, exportable to PDF
 - **Sprints, XP, streaks and trophies**

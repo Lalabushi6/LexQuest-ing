@@ -16,6 +16,18 @@ contextBridge.exposeInMainWorld('lq', {
   setSemester: (n, home) => ipcRenderer.invoke('sem:set', n, home),
   contentFiles: () => ipcRenderer.invoke('content:files'),
   openContentFolder: () => ipcRenderer.invoke('content:open'),
+  gcal: {
+    status: () => ipcRenderer.invoke('gcal:status'),
+    setClient: text => ipcRenderer.invoke('gcal:setClient', text),
+    pickClientFile: () => ipcRenderer.invoke('gcal:pickClientFile'),
+    clearClient: () => ipcRenderer.invoke('gcal:clearClient'),
+    connect: () => ipcRenderer.invoke('gcal:connect'),
+    cancel: () => ipcRenderer.invoke('gcal:cancel'),
+    disconnect: () => ipcRenderer.invoke('gcal:disconnect'),
+    calendars: () => ipcRenderer.invoke('gcal:calendars'),
+    events: range => ipcRenderer.invoke('gcal:events', range),
+    sync: payload => ipcRenderer.invoke('gcal:sync', payload)
+  },
   fullscreen: {
     get: () => ipcRenderer.invoke('win:fullscreen'),
     set: on => ipcRenderer.invoke('win:fullscreen', !!on),

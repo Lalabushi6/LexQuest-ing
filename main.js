@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const updater = require('./updater');
 const builder = require('./builder');
+const gcal = require('./gcal');
 
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
 const baseDir = isPortable ? process.env.PORTABLE_EXECUTABLE_DIR : path.resolve(__dirname, '..');
@@ -328,7 +329,8 @@ ipcMain.handle('fs:chooseRoot', async () => {
 ipcMain.handle('data:export', async (_e, payload, suggestedName, kind) => {
   const filters = kind === 'md'
     ? [{ name: 'Markdown', extensions: ['md'] }]
-    : kind === 'html' ? [{ name: 'Web page', extensions: ['html'] }] : [{ name: 'JSON', extensions: ['json'] }];
+    : kind === 'html' ? [{ name: 'Web page', extensions: ['html'] }]
+      : kind === 'ics' ? [{ name: 'Calendar (iCalendar)', extensions: ['ics'] }] : [{ name: 'JSON', extensions: ['json'] }];
   // Backups belong with the app's data; notes go to the semester folder.
   const startDir = kind === 'json' ? dataDir : semesterRoot();
   const res = await dialog.showSaveDialog({ title: 'Export', defaultPath: path.join(startDir, suggestedName), filters });
@@ -375,6 +377,7 @@ ipcMain.handle('data:import', async () => {
 
 updater.register({ configFile, readJson, writeJsonAtomic, getWindow: () => mainWindow });
 builder.register({ configFile, readJson, writeJsonAtomic, contentDir, semesterRoot: n => semesterRoot(n), getWindow: () => mainWindow });
+gcal.register({ configFile, readJson, writeJsonAtomic, getUserDir: () => (currentUser ? userDir(currentUser) : null), getWindow: () => mainWindow });
 
 app.whenReady().then(() => {
   migrateToProfiles();

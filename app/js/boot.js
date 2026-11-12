@@ -36,5 +36,5 @@
   }
   window.LQ_DATA.packs = results; // shown in Settings, so a broken pack can be found
 
-  for (const file of ['core', 'planner', 'retention', 'views-learn', 'views-practice', 'views-misc', 'views-retention', 'views-builder', 'search', 'profiles', 'updates', 'app']) await load(`js/${file}.js`);
+  for (const file of ['core', 'planner', 'retention', 'calendar', 'views-learn', 'views-practice', 'views-misc', 'views-retention', 'views-calendar', 'views-builder', 'search', 'profiles', 'updates', 'app']) await load(`js/${file}.js`);
 })();

@@ -3,7 +3,7 @@
 (function () {
   const { $, $$, esc, todayKey, fmtDate } = LQ.h;
   const D = window.LQ_DATA;
-  const CRUMBS = { home: 'Today', subjects: 'Subjects', semesters: 'Semesters', subject: 'Subject', topic: 'Topic', review: 'Flashcards', palace: 'Memory palace', papers: 'Past papers', mock: 'Mock exam', timetable: 'Timetable', notes: 'My notes', statute: 'Bare acts', guide: 'Memory guide', trophies: 'Trophies', settings: 'Settings', builder: 'Course builder', drill: 'Drills' };
+  const CRUMBS = { home: 'Today', subjects: 'Subjects', semesters: 'Semesters', subject: 'Subject', topic: 'Topic', review: 'Flashcards', palace: 'Memory palace', papers: 'Past papers', mock: 'Mock exam', timetable: 'Timetable', notes: 'My notes', statute: 'Bare acts', guide: 'Memory guide', trophies: 'Trophies', settings: 'Settings', builder: 'Course builder', drill: 'Drills', calendar: 'Calendar' };
 
   function parse() {
     const raw = location.hash.replace(/^#\/?/, '');
@@ -236,6 +236,7 @@
     if (!LQ.state.onboarded) onboarding();
     LQ.checkSemesterFiles();
     LQ.autoCheckForUpdate();
+    if (LQ.calendarStart) LQ.calendarStart();
     setInterval(() => LQ.renderTopbar(), 30000);
   }
   init();

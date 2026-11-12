@@ -110,7 +110,8 @@ function freshState() {
     version: 1, createdAt: Date.now(), settings: { ...DEFAULT_SETTINGS },
     xp: 0, days: {}, streak: { current: 0, best: 0, lastDay: null },
     cards: {}, customCards: [], topics: {}, notes: {}, palace: { custom: [], walks: {} },
-    timetable: {}, planPieces: {}, quests: null, badges: {}, parking: [], mocks: [], mcq: {}, practice: {}, newToday: { day: null, n: 0 }, recall: {}
+    timetable: {}, planPieces: {}, quests: null, badges: {}, parking: [], mocks: [], mcq: {}, practice: {}, newToday: { day: null, n: 0 }, recall: {},
+    calendar: { events: [] }
   };
 }
 
@@ -139,6 +140,7 @@ window.addEventListener('beforeunload', () => LQ.save(true));
 // semester decides what the views see: D.subjects, exams, timetable, palaces and papers are narrowed
 // to it, while D.allSubjects keeps everything.
 const ALL = { subjects: D.subjects, exams: D.exams || [], timetable: D.timetable || [], palaces: D.palaces || [], papers: D.papers || [], pastQuestions: D.pastQuestions || [] };
+LQ.allExams = () => ALL.exams; // every semester's, for the calendar
 D.allSubjects = ALL.subjects;
 LQ.semesterSubjects = n => Object.values(ALL.subjects).filter(s => s.semester === n);
 LQ.semesterStatus = n => n < D.degree.current ? 'past' : n === D.degree.current ? 'current' : 'upcoming';
