@@ -71,7 +71,8 @@
     }
     if (on('plan') && plan && plan.days) {
       for (const d of Object.values(plan.days)) {
-        if (!d || !isDate(d.date) || d.date < today || d.isExamDay) continue;
+        if (!d || !isDate(d.date) || d.date < today) continue;
+        // On the day of a paper the paper itself is the exam's entry; the study around it is listed here.
         const rows = [];
         for (const it of d.items || []) {
           if (it.state !== 'open' && it.state !== 'done') continue;

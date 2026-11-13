@@ -45,6 +45,11 @@ test('collect gathers exams, the plan from today, recall checks and own events',
   assert.strictEqual(day.label, '📚 3.25 h · Leases, Sailing');
   assert.strictEqual(day.details, '✓ 1 h · Leases — Notice\n• 1.5 h · Sailing — Salvage\n↩ 0.75 h · Leases — Rent (part 1 of 2)');
   assert.strictEqual(ev.find(e => e.key === 'plan:2031-02-05').title, '✓ Studied: Sailing · ≈ 1 h');
+  // The day of a paper still lists the study around it; the paper itself is only the exam's entry.
+  const paperDay = C.collect({ exams: [{ subject: 'lease', date: '2031-02-07', title: 'Leases final' }], plan: { days: { '2031-02-07': { date: '2031-02-07', isExamDay: true, items: [{ state: 'open', hours: 0.5, subject: 'lease', text: 'Morning sheet' }, { state: 'exam', subject: 'exam', text: 'Leases final' }, { state: 'open', hours: 2, subject: 'sail', text: 'Salvage' }], extra: [] } } }, subjects, today: '2031-02-03' });
+  assert.deepStrictEqual(paperDay.map(e => e.key), ['exam:lease:2031-02-07', 'plan:2031-02-07']);
+  assert.strictEqual(paperDay[1].title, '📚 Study: Leases, Sailing · ≈ 2.5 h');
+  assert.ok(!paperDay[1].details.includes('Leases final'));
   // A block that isn't a course (due cards for every subject) is left out of the title, not the details.
   const mixed = C.collect({ plan: { days: { '2031-02-06': { date: '2031-02-06', items: [{ state: 'open', hours: 0.5, subject: 'Every subject', text: 'Due cards' }, { state: 'open', hours: 1, subject: 'sail', text: 'Charts' }], extra: [] } } }, subjects, today: '2031-02-03' })[0];
   assert.strictEqual(mixed.title, '📚 Study: Sailing · ≈ 1.5 h');
