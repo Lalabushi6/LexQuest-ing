@@ -111,7 +111,8 @@ function freshState() {
     xp: 0, days: {}, streak: { current: 0, best: 0, lastDay: null },
     cards: {}, customCards: [], topics: {}, notes: {}, palace: { custom: [], walks: {} },
     timetable: {}, planPieces: {}, quests: null, badges: {}, parking: [], mocks: [], mcq: {}, practice: {}, newToday: { day: null, n: 0 }, recall: {},
-    calendar: { events: [] }
+    calendar: { events: [] },
+    breaks: {} // custom breaks by plan day: { 'YYYY-MM-DD': [{ t: start ms, min }] }
   };
 }
 
@@ -305,10 +306,37 @@ LQ.mastery = function mastery(filter) {
 /* ---------- the adaptive plan (the logic is in planner.js) ---------- */
 LQ.plan = function plan() {
   const tier = id => { for (const s of Object.values(D.subjects)) for (const u of s.units) for (const t of u.topics) if (t.id === id) return t.tier; return 2; };
-  return LQ.replan({
+  const out = LQ.replan({
     days: D.timetable || [], today: todayKey(), status: LQ.state.timetable, pieces: LQ.state.planPieces,
     topicPct: id => LQ.topicPct(id), nextExam: LQ.examDateFor, tierOf: tier, extraHours: LQ.state.settings.catchUpHours
   });
+  // Custom breaks taken today move today's clock times (see breaks.js).
+  const today = todayKey(), day = out.days && out.days[today], taken = LQ.breaksToday();
+  out.breakShift = null;
+  if (day && taken.length && LQ.breaks) {
+    const r = LQ.breaks.shiftDay(day.items, taken.map(b => ({ start: LQ.breaks.minutesInto(today, b.t), min: b.min })), { breakMin: LQ.state.settings.breakMin });
+    out.days[today] = { ...day, items: r.items };
+    out.breakShift = { ...r, taken };
+  }
+  return out;
+};
+LQ.breaksToday = () => ((LQ.state.breaks || {})[todayKey()] || []).filter(b => b && b.min > 0);
+// Log a custom break so the plan can move around it; returns the record.
+LQ.logBreak = function logBreak(min) {
+  const k = todayKey();
+  LQ.state.breaks = LQ.state.breaks || {};
+  const rec = { t: Date.now(), min: Math.max(1, Math.round(min)) };
+  (LQ.state.breaks[k] = LQ.state.breaks[k] || []).push(rec);
+  // Keep a fortnight of days.
+  for (const d of Object.keys(LQ.state.breaks)) if (d < todayKey(new Date(Date.now() - 14 * 86400000))) delete LQ.state.breaks[d];
+  LQ.save();
+  return rec;
+};
+LQ.undoBreak = function undoBreak() {
+  const list = (LQ.state.breaks || {})[todayKey()];
+  if (list && list.length) list.pop();
+  if (timer.custom) { timer.custom = null; if (timer.mode === 'break') LQ.stopTimer(); }
+  LQ.save();
 };
 
 /* ---------- topic progress ---------- */
@@ -477,11 +505,34 @@ LQ.startSprint = function startSprint(label, goal) {
 };
 LQ.startBreak = function startBreak(long) {
   timer.mode = 'break';
+  timer.custom = null;
   timer.endsAt = Date.now() + (long ? LQ.state.settings.longBreakMin : LQ.state.settings.breakMin) * 60000;
   tick();
   LQ.renderTopbar();
 };
+// A break the plan didn't have: the plan moves around it (LQ.plan), and stopping it early shortens it.
+LQ.startCustomBreak = function startCustomBreak(min) {
+  const rec = LQ.logBreak(min);
+  timer.mode = 'break';
+  timer.custom = rec;
+  timer.endsAt = rec.t + rec.min * 60000;
+  tick();
+  LQ.renderTopbar();
+  LQ.rerender();
+};
 LQ.stopTimer = function stopTimer() {
+  if (timer.custom && timer.mode !== 'idle') {
+    const used = Math.round((Date.now() - timer.custom.t) / 60000);
+    if (used <= 2) { // stopped straight away: treat it as never taken
+      const list = (LQ.state.breaks || {})[todayKey(new Date(timer.custom.t))] || [];
+      const i = list.indexOf(timer.custom); if (i >= 0) list.splice(i, 1);
+      LQ.toast('Break cancelled. The plan is back to its times.');
+    } else if (used < timer.custom.min) timer.custom.min = used;
+    LQ.save();
+    timer.custom = null;
+    timer.mode = 'idle'; clearTimeout(timer.handle); LQ.renderTopbar(); LQ.rerender();
+    return;
+  }
   timer.mode = 'idle'; clearTimeout(timer.handle); LQ.renderTopbar();
 };
 LQ.pauseTimer = function pauseTimer() {
@@ -525,9 +576,10 @@ function sprintDone() {
     <div class="row"><button class="btn good" data-hit="1">Yes 💪</button><button class="btn" data-hit="0">Partly / no</button></div><hr>` : ''}
     <p>Take a ${long ? LQ.state.settings.longBreakMin + '-minute long' : LQ.state.settings.breakMin + '-minute'} break. Try one of these:</p>
     <ul>${ideas.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
-    <div class="row"><button class="btn primary" id="goBreak">Start break</button><button class="btn" id="skipBreak">Skip break, next sprint</button><span class="spacer"></span><button class="btn ghost" id="doneForNow">Done for now</button></div>`, { sticky: true });
+    <div class="row"><button class="btn primary" id="goBreak">Start break</button><button class="btn" id="customBreak" title="A longer break; the plan moves around it">☕ Longer break…</button><button class="btn" id="skipBreak">Skip break, next sprint</button><span class="spacer"></span><button class="btn ghost" id="doneForNow">Done for now</button></div>`, { sticky: true });
   $$('[data-hit]', m).forEach(b => b.onclick = () => { if (b.dataset.hit === '1') LQ.addXP(10, 'Goal hit'); b.parentElement.innerHTML = '<span class="chip ok">Logged</span>'; });
   $('#goBreak', m).onclick = () => { LQ.closeModal(); LQ.startBreak(long); };
+  $('#customBreak', m).onclick = () => { LQ.closeModal(); LQ.promptBreak(); };
   $('#skipBreak', m).onclick = () => { LQ.closeModal(); LQ.promptSprint(); };
   $('#doneForNow', m).onclick = () => { LQ.closeModal(); LQ.renderTopbar(); LQ.rerender(); };
   LQ.renderTopbar();
@@ -535,6 +587,7 @@ function sprintDone() {
 }
 function breakDone() {
   timer.mode = 'idle';
+  if (timer.custom) { timer.custom = null; LQ.rerender(); }
   LQ.sound('break');
   LQ.renderTopbar();
   const m = LQ.modal(`<h2>⏰ Break's over</h2><p>One more sprint? Starting is the hardest part — commit to just the first 5 minutes.</p>
@@ -554,6 +607,37 @@ LQ.promptSprint = function promptSprint(label) {
   $('#spGo', m).onclick = () => { LQ.startSprint($('#spLabel', m).value, $('#spGoal', m).value); LQ.closeModal(); };
   $('#spCancel', m).onclick = () => LQ.closeModal();
   setTimeout(() => $('#spGoal', m).focus(), 50);
+};
+
+// Choose a break of any length. The preview says what it does to today's timed plan before it starts.
+LQ.promptBreak = function promptBreak() {
+  const pre = LQ.plan(), today = todayKey(), day = pre.days && pre.days[today];
+  const B = LQ.breaks, fmt = B ? B.fmt : String;
+  const preview = min => {
+    if (!B || !day || !day.items.some(it => B.headStart(it.text) != null)) return '<p class="muted">Today’s plan has no clock times, so nothing moves; the break is just logged.</p>';
+    // day.items already carry any earlier breaks, so this previews the new one on top of them.
+    const r = B.shiftDay(day.items, [{ start: B.minutesInto(today, Date.now()), min }], { breakMin: LQ.state.settings.breakMin });
+    const won = r.absorbed.reduce((a, x) => a + x.saved, 0);
+    const end = r.newFinish != null ? fmt(r.newFinish, true) : '';
+    return `<div class="callout ${r.late > 0 ? 'warn' : 'tip'}">Everything after now moves ${min} minutes later.${won ? ` The next long ${r.absorbed.length === 1 ? 'break shrinks' : 'breaks shrink'} to win back ${won} ${won === 1 ? 'minute' : 'minutes'}.` : ''} ${r.late > 0 ? `The plan would end at <strong>${end}</strong>, ${r.late} minutes later than now planned` : `The plan still ends at <strong>${end}</strong>`}${r.spare != null ? `, ${r.spare >= 0 ? `${r.spare} minutes before` : `${-r.spare} minutes <strong>after</strong>`} the exam` : ''}.</div>`;
+  };
+  const m = LQ.modal(`
+    <h2>☕ Take a break</h2>
+    <p class="muted">For a break the plan didn't have. Pick a length, or type your own.</p>
+    <div class="row" id="brQuick">${[5, 10, 15, 20, 30, 45, 60].map(n => `<button class="btn small${n === 15 ? ' primary' : ''}" data-min="${n}">${n} min</button>`).join('')}</div>
+    <label class="field" style="margin-top:10px"><span>Minutes</span><input type="number" id="brMin" min="1" max="240" value="15"></label>
+    <div id="brPreview">${preview(15)}</div>
+    <p class="muted" style="font-size:.88em">Press ■ to end the break early: the plan only moves by the time you actually took. <strong>Undo</strong> on Today takes it back.</p>
+    <div class="row"><button class="btn primary" id="brGo">Start break</button><button class="btn" id="brCancel">Cancel</button></div>`);
+  const input = $('#brMin', m);
+  const val = () => Math.max(1, Math.min(240, Math.round(Number(input.value) || 0)));
+  const update = () => { $('#brPreview', m).innerHTML = preview(val()); $$('[data-min]', m).forEach(b => b.classList.toggle('primary', +b.dataset.min === val())); };
+  $$('[data-min]', m).forEach(b => b.onclick = () => { input.value = b.dataset.min; update(); });
+  input.oninput = update;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') $('#brGo', m).click(); });
+  $('#brGo', m).onclick = () => { const n = val(); LQ.closeModal(); LQ.startCustomBreak(n); LQ.toast(`☕ ${n}-minute break. The plan has moved around it.`); };
+  $('#brCancel', m).onclick = () => LQ.closeModal();
+  setTimeout(() => input.select(), 50);
 };
 
 LQ.parkThought = function parkThought() {
@@ -577,7 +661,7 @@ LQ.renderTopbar = function renderTopbar() {
     <span class="xpbar" title="${li.into}/${li.need} XP to next level"><i style="width:${li.pct}%"></i></span>
     <span class="muted">${LQ.state.xp} XP</span>`;
   const sb = $('#sprintBox');
-  if (timer.mode === 'idle') sb.innerHTML = `<button class="btn small primary" id="sprintStart">▶ Sprint</button>`;
+  if (timer.mode === 'idle') sb.innerHTML = `<button class="btn small primary" id="sprintStart">▶ Sprint</button><button class="btn small" id="breakStart" title="Take a break of any length; today's plan moves around it">☕ Break</button>`;
   else {
     const left = timer.mode === 'paused' ? timer.pausedLeft : timer.endsAt - Date.now();
     sb.innerHTML = `<span class="clock ${timer.mode === 'focus' ? 'on' : timer.mode === 'break' ? 'break' : ''}" id="sprintClock" title="${esc(timer.label)}">${fmtClock(left)}</span>
@@ -586,6 +670,7 @@ LQ.renderTopbar = function renderTopbar() {
       <button class="icon-btn" id="sprintStop" title="Stop">■</button>`;
   }
   const sbs = $('#sprintStart'); if (sbs) sbs.onclick = () => LQ.promptSprint();
+  const sbb = $('#breakStart'); if (sbb) sbb.onclick = () => LQ.promptBreak();
   const sp = $('#sprintPause'); if (sp) sp.onclick = () => LQ.pauseTimer();
   const ss = $('#sprintStop'); if (ss) ss.onclick = () => LQ.stopTimer();
   const due = LQ.dueCards().length;

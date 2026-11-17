@@ -52,6 +52,7 @@
         <div class="card">
           <div class="row between"><h2>📋 Today's plan</h2><a href="#/timetable" class="muted">Full timetable →</a></div>
           ${adaptive.moved.length ? `<div class="callout ${adaptive.unplaced.length ? 'warn' : 'tip'}">🔄 ${adaptive.moved.length} skipped ${adaptive.moved.length === 1 ? 'block' : 'blocks'} (${adaptive.movedHours} h) spread over the days before ${adaptive.moved.length === 1 ? 'its exam' : 'their exams'}.${adaptive.unplaced.length ? ` <strong>${adaptive.unplacedHours} h won’t fit.</strong>` : ''} <a href="#/timetable">See the new plan</a></div>` : ''}
+          ${breakNote(adaptive.breakShift)}
           ${planItems.length || (plan && plan.extra.length) ? `<p class="muted">${esc(plan.phase || '')} · about ${plan.load} h today</p><div>${planItems.map(it => taskRow(it)).join('')}${plan.extra.map(pieceRow).join('')}</div>` : `<p class="muted">No planned blocks today. Review your due cards and walk the palace — that's the best use of a free day.</p>`}
         </div>
         <div class="card">
@@ -71,6 +72,19 @@
       }).join('')}</div>
     </div>`;
   };
+
+  // What today's custom breaks did to the plan, with an undo for the last one.
+  function breakNote(r) {
+    if (!r || !r.taken || !r.taken.length) return '';
+    const B = LQ.breaks, t = ts => new Date(ts).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+    const list = r.taken.map(b => `${b.min} min at ${t(b.t)}`).join(', ');
+    const won = r.absorbed.reduce((a, x) => a + x.saved, 0);
+    const end = r.newFinish != null ? B.fmt(r.newFinish, true) : null;
+    const body = r.finish == null ? 'Today’s blocks have no clock times, so nothing moved.'
+      : `Times after ${r.taken.length === 1 ? 'it' : 'each'} are later${won ? `, and ${r.absorbed.map(x => `the long break at ${B.fmt(x.from, true)} is ${x.now} minutes, not ${x.was}`).join('; ')} (${won} ${won === 1 ? 'minute' : 'minutes'} won back)` : ''}. ${r.late > 0 ? `The plan now ends at <strong>${end}</strong>, ${r.late} minutes later than planned${r.spare != null ? ` (${r.spare >= 0 ? `${r.spare} minutes before` : `${-r.spare} minutes <strong>after</strong>`} the exam)` : ''}. To get back on time, take ${r.late} minutes off the last block.` : `The plan still ends at <strong>${end}</strong>.`}`;
+    return `<div class="callout ${r.late > 0 ? 'warn' : 'tip'}">☕ ${r.taken.length === 1 ? 'Break' : 'Breaks'} today: ${list}. ${body} <button class="btn small" data-act="undo-break">Undo the last break</button></div>`;
+  }
+  LQ.breakNote = breakNote;
 
   const shortOf = id => (D.subjects[id] ? D.subjects[id].short : id);
   const topicLink = it => (it.topic ? ` <a href="#/topic/${it.subject}/${it.topic}">open</a>` : '');
@@ -108,6 +122,7 @@
     $$('[data-back]').forEach(b => b.onclick = () => setStatus(b.dataset.back, ''));
     $$('[data-drop]').forEach(b => b.onclick = () => { LQ.toast('Let go. You can restore it on the Timetable page.'); setStatus(b.dataset.drop, 'dropped'); });
     $$('[data-restore]').forEach(b => b.onclick = () => setStatus(b.dataset.restore, ''));
+    $$('[data-act="undo-break"]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); LQ.undoBreak(); LQ.toast('Break taken back. The plan is back to its times.'); LQ.rerender(); });
   };
 
   LQ.after = LQ.after || {};
@@ -309,16 +324,19 @@
         const loci = LQ.palaceLociFor(s.id, t.id);
         return `<div class="read">
           <div class="card" style="margin-bottom:14px"><h2>🗝️ Place it in your memory palace</h2><p class="muted">Each locus is a fixed spot on a route you already know. Picture the image <em>vividly</em> — exaggerated, moving, funny or disgusting works best — for 5 seconds each.</p></div>
-          ${loci.length ? `<div class="stack">${loci.map(l => `<div class="locus"><span class="n">${l.n}</span><div><strong>${esc(l.room)} — ${esc(l.spot)}</strong><br><span>${LQ.md(l.image).replace(/^<p>|<\/p>$/g, '')}</span><br><small class="muted">↳ ${LQ.md(l.meaning).replace(/^<p>|<\/p>$/g, '')}</small></div></div>`).join('')}</div>
+          ${loci.length ? `<div class="stack">${loci.map(l => `<div class="locus"><span class="n">${l.n}</span><div><strong>${esc(l.room)} — ${esc(l.spot)}</strong>${LQ.locusImg ? LQ.locusImg(l, 'locus-img topic-locus-img') : ''}<br><span>${LQ.md(l.image).replace(/^<p>|<\/p>$/g, '')}</span><br><small class="muted">↳ ${LQ.md(l.meaning).replace(/^<p>|<\/p>$/g, '')}</small></div></div>`).join('')}</div>
             <div class="row" style="margin-top:14px"><button class="btn primary" data-go="#/palace?walk=${s.id}&topic=${t.id}">Walk these loci now →</button></div>`
             : `<div class="card"><p>No loci for this topic yet. Open the <a href="#/palace">Memory Palace</a> builder and add your own — use a route you know (your room, hostel corridor, the walk to class).</p></div>`}
         </div>`;
       }
       case 'test': {
-        const mcqs = (s.mcqs || []).filter(q => q.topic === t.id);
+        // The written questions plus ones built from the topic's case cards and key words, sized to its notes.
+        const mcqs = LQ.retention && LQ.retention.topicQuiz ? LQ.retention.topicQuiz(s, t) : (s.mcqs || []).filter(q => q.topic === t.id);
+        LQ._topicQuiz = { id: t.id, qs: mcqs };
+        const made = mcqs.filter(q => q.generated).length;
         const pq = (D.pastQuestions || []).filter(q => (q.topics || []).includes(t.id));
         return `<div class="read">
-          ${mcqs.length ? `<div class="card"><h2>🧪 Quick quiz (${mcqs.length})</h2><div id="mcqBox"></div></div>` : ''}
+          ${mcqs.length ? `<div class="card"><h2>🧪 Quick quiz (${mcqs.length})</h2>${made ? `<p class="muted" style="margin-top:-4px">${mcqs.length - made ? `${mcqs.length - made} written questions, and ` : ''}${made} from this topic’s case cards and key words. The longer the notes, the more questions.</p>` : ''}<div id="mcqBox"></div></div>` : ''}
           ${pq.length ? `<div class="card" style="margin-top:14px"><h2>📝 Past-paper questions on this topic</h2><div class="list">${pq.map(q => `<div class="item"><span class="grow"><small class="muted">${esc(q.paper)} · ${q.marks} marks${q.oldLaw ? ' · set under older law' : ''}</small><br>${esc((q.short || q.text.replace(/\*\*/g, '')).slice(0, 200))}…</span><button class="btn small" data-go="#/papers?practice=${q.id}">Answer it</button></div>`).join('')}</div></div>` : ''}
           ${!mcqs.length && !pq.length ? `<div class="card"><p>No quiz for this topic yet — test yourself with its flashcards in cram mode, or write a 10-minute answer to: <em>"Critically explain ${esc(t.title)} with cases."</em></p></div>` : ''}
         </div>`;
@@ -363,6 +381,7 @@
     const found = LQ.findTopic(p.sid, p.tid);
     if (!found) return;
     const { s, t } = found;
+    if (LQ.hideBrokenLocusImgs) LQ.hideBrokenLocusImgs(document);
     const step = p.step || firstOpenStep(t.id);
     const place = nextPlace(step, s, t);
     const goNext = () => {
@@ -375,7 +394,7 @@
     drawBar();
     if (step === 'write') wireNotes(s, t, drawBar);
     if (step === 'recall') LQ.mountCardSession($('#topicCards'), { subject: s.id, topic: t.id, limit: 60, onFinish: finished, onContinue: goNext, continueLabel: `Continue: ${place.label}` });
-    if (step === 'test' && $('#mcqBox')) LQ.mountMCQ($('#mcqBox'), (s.mcqs || []).filter(q => q.topic === t.id), finished);
+    if (step === 'test' && $('#mcqBox')) LQ.mountMCQ($('#mcqBox'), LQ._topicQuiz && LQ._topicQuiz.id === t.id ? LQ._topicQuiz.qs : (s.mcqs || []).filter(q => q.topic === t.id), finished);
     const crit = $('#myCritique');
     if (crit) crit.oninput = () => { const n = LQ.state.notes[t.id] = LQ.state.notes[t.id] || {}; n.critique = crit.value; LQ.save(); };
   };

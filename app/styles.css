@@ -289,6 +289,12 @@ input[type=checkbox] { accent-color: var(--accent); width: 18px; height: 18px; }
 .locus .n { background: var(--accent); color: var(--bg); border-radius: 8px; min-width: 26px; text-align: center; font-weight: 800; font-size: .85em; }
 .walk-stage { max-width: 760px; margin: 0 auto; text-align: center; }
 .walk-stage .big { font-size: 4em; margin: 10px 0; }
+.locus-img { display: block; width: 100%; aspect-ratio: 8 / 5; object-fit: cover; border-radius: 8px; margin: 6px 0 2px; background: var(--panel); }
+.topic-locus-img { max-width: 360px; }
+.palace-plan { margin: 0 0 16px; padding: 12px 14px; }
+.palace-plan summary { cursor: pointer; margin-bottom: 10px; }
+.palace-plan-svg { display: block; width: 100%; max-width: 1000px; height: auto; margin: 0 auto; border-radius: 14px; }
+.walk-stage .walk-img { display: block; width: 100%; max-width: 520px; aspect-ratio: 8 / 5; margin: 14px auto 0; border-radius: 12px; background: var(--panel2); }
 .walk-stage .image { background: var(--panel2); border-radius: 14px; padding: 18px; text-align: left; margin-top: 14px; }
 
 /* Timer overlay / break */
@@ -319,6 +325,8 @@ input[type=checkbox] { accent-color: var(--accent); width: 18px; height: 18px; }
 .day.exam { border-color: var(--bad); }
 .day.past { opacity: .6; }
 .day h4 { margin: 0 0 6px; display: flex; gap: 8px; align-items: center; }
+.day .group-date { display: block; margin-top: 8px; font-size: .78em; }
+.day h4 .chip { white-space: nowrap; flex-shrink: 0; }
 .task { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; }
 .task.done span { text-decoration: line-through; color: var(--muted); }
 

@@ -3,7 +3,7 @@
 (function () {
   const { $, $$, esc, todayKey, fmtDate } = LQ.h;
   const D = window.LQ_DATA;
-  const CRUMBS = { home: 'Today', subjects: 'Subjects', semesters: 'Semesters', subject: 'Subject', topic: 'Topic', review: 'Flashcards', palace: 'Memory palace', papers: 'Past papers', mock: 'Mock exam', timetable: 'Timetable', notes: 'My notes', statute: 'Bare acts', guide: 'Memory guide', trophies: 'Trophies', settings: 'Settings', builder: 'Course builder', drill: 'Drills', calendar: 'Calendar' };
+  const CRUMBS = { home: 'Today', subjects: 'Subjects', semesters: 'Semesters', subject: 'Subject', topic: 'Topic', review: 'Flashcards', palace: 'Memory palace', papers: 'Past papers', mock: 'Mock exam', timetable: 'Timetable', notes: 'My notes', statute: 'Bare acts', guide: 'Memory guide', trophies: 'Trophies', settings: 'Settings', builder: 'Course builder', drill: 'Drills', calendar: 'Calendar', revision: 'Revision', games: 'Games · Base Defence' };
 
   function parse() {
     const raw = location.hash.replace(/^#\/?/, '');
@@ -24,7 +24,8 @@
     const main = $('#main');
     try {
       main.innerHTML = view(current.params);
-      if (LQ.after[current.name]) LQ.after[current.name](current.params);
+      const shown = LQ.views[current.name] ? current.name : 'home'; // an unknown route shows Today, so wire Today
+      if (LQ.after[shown]) LQ.after[shown](current.params);
     } catch (err) {
       console.error(err);
       main.innerHTML = `<div class="page empty"><h2>Something broke on this page</h2><p>${esc(err.message)}</p><a href="#/home">Back to Today</a></div>`;

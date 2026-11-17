@@ -7,8 +7,32 @@
   LQ.after = LQ.after || {};
 
   /* ---------- Timetable ---------- */
-  LQ.views.timetable = function timetable() {
+  const VIEWS = [['day', 'By day'], ['module', 'By module'], ['week', 'By week']];
+  // The plan grouped by module or by course week: one card per group, each block with its date.
+  function groupedPlan(days, plan, by, today) {
+    // Subjects in the order of their next paper; any without one keep their place at the end.
+    const next = sid => LQ.examDateFor(sid) || '9999-12-31';
+    const subjects = Object.fromEntries(Object.entries(D.subjects).sort(([a], [b]) => next(a).localeCompare(next(b))));
+    const groups = LQ.groupPlan({ days, plan, subjects, by });
+    if (!groups.length) return `<div class="empty">No blocks to group yet.</div>`;
+    let todaySeen = false;
+    const card = g => {
+      const hasToday = !todaySeen && g.rows.some(r => r.date === today);
+      if (hasToday) todaySeen = true;
+      const complete = g.hours > 0 && g.doneHours >= g.hours;
+      return `<div class="day ${hasToday ? 'today' : ''}" ${hasToday ? 'id="todayCard"' : ''}>
+        <h4>${esc(g.title)} <span class="chip ${complete ? 'ok' : ''}" title="Hours done of hours planned">${g.doneHours}/${g.hours} h</span></h4>
+        ${g.rows.map(r => `<small class="muted group-date">${esc(fmtDate(r.date))}${r.date === today ? ' · today' : ''}</small>${r.kind === 'piece' ? LQ.pieceRow(r.item) : LQ.taskRow(r.item)}`).join('')}
+      </div>`;
+    };
+    const bySubject = [];
+    for (const g of groups) { if (!bySubject.length || bySubject[bySubject.length - 1].subject !== g.subject) bySubject.push({ subject: g.subject, name: g.subjectName, groups: [] }); bySubject[bySubject.length - 1].groups.push(g); }
+    return bySubject.map(s => `<div class="section-title"><h2>${esc(s.name)}</h2></div><div class="grid g3">${s.groups.map(card).join('')}</div>`).join('');
+  }
+
+  LQ.views.timetable = function timetable(p = {}) {
     const today = todayKey();
+    const by = VIEWS.some(([k]) => k === p.by) ? p.by : 'day';
     const days = D.timetable || [];
     const plan = LQ.plan();
     const phases = [];
@@ -20,6 +44,7 @@
     if (!days.length) return `<div class="page"><h1>🗓️ Timetable</h1>${LQ.noCourses()}<div class="empty">No timetable yet. A course pack can add a day-by-day plan, and it adapts when you skip a topic.</div></div>`;
     return `<div class="page"><div class="row between"><h1>🗓️ Timetable</h1><span class="chip ok">${doneN}/${allItems.length} blocks done</span></div>
       <p class="muted">Each block is ${LQ.state.settings.sprintMin}-minute sprints with breaks. Tick a block when it's done. On a <strong>light day</strong> (4 h) keep review + Tier 1 and skip the further-reading cards; on a <strong>heavy day</strong> (8 h) spend the extra time on timed past-paper answers, not new material — and never two heavy days in a row.</p>
+      ${LQ.breakNote ? LQ.breakNote(plan.breakShift) : ''}
       ${plan.moved.length || plan.dropped.length ? `<div class="card" style="border-color:${plan.unplaced.length ? 'var(--bad)' : 'var(--accent)'};margin-bottom:16px">
         <h3>🔄 Your plan has adapted</h3>
         ${plan.moved.length ? `<p class="muted">${plan.moved.length} skipped topic ${plan.moved.length === 1 ? 'block' : 'blocks'} (${plan.movedHours} h still to do) ${plan.moved.length === 1 ? 'is' : 'are'} spread over the days before each subject’s next exam: the nearest exam and highest tier go first, on the days with the most room. Look for the <span class="chip t2">↩</span> blocks below. Steps you’ve already finished in a topic are taken off automatically, and the plan updates each time you tick something.</p>` : ''}
@@ -29,7 +54,8 @@
           ${pastMoved.length ? `<button class="btn small" id="planAllDone">✓ I already studied the ${pastMoved.length} from earlier days</button>` : ''}</div>
         ${plan.dropped.length ? `<details style="margin-top:10px"><summary class="muted">Let go (${plan.dropped.length})</summary>${plan.dropped.map(b => `<div class="task-row"><span class="task"><span><strong>${esc(D.subjects[b.subject] ? D.subjects[b.subject].short : b.subject)}</strong> — ${esc(b.text)}</span></span><button class="task-act" data-restore="${b.id}">↩ Restore</button></div>`).join('')}</details>` : ''}
       </div>` : ''}
-      ${phases.map(ph => `<div class="section-title"><h2>${esc(ph.name)}</h2></div><div class="grid g3">${ph.days.map(d => {
+      <div class="pill-nav" role="tablist" aria-label="Group the plan">${VIEWS.map(([k, label]) => `<button role="tab" aria-selected="${by === k}" class="${by === k ? 'active' : ''}" data-go="#/timetable${k === 'day' ? '' : `?by=${k}`}">${label}</button>`).join('')}</div>
+      ${by !== 'day' ? groupedPlan(days, plan, by, today) : phases.map(ph => `<div class="section-title"><h2>${esc(ph.name)}</h2></div><div class="grid g3">${ph.days.map(d => {
         const dp = plan.days[d.date];
         const over = d.date >= today && dp.load > dp.budget;
         return `<div class="day ${d.date === today ? 'today' : ''} ${dp.isExamDay ? 'exam' : ''} ${d.date < today ? 'past' : ''}" ${d.date === today ? 'id="todayCard"' : ''}>

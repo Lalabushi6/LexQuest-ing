@@ -132,6 +132,107 @@
     });
   }
 
+  // Table cells of one markdown row; a "|" inside [[…]] (a link label) doesn't split.
+  function cells(line) {
+    const out = []; let cur = '', depth = 0;
+    const s = line.trim().replace(/^\||\|$/g, '');
+    for (let i = 0; i < s.length; i++) {
+      if (s.startsWith('[[', i)) { depth++; cur += '[['; i++; continue; }
+      if (s.startsWith(']]', i) && depth) { depth--; cur += ']]'; i++; continue; }
+      if (s[i] === '|' && !depth) { out.push(cur.trim()); cur = ''; continue; }
+      cur += s[i];
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  // The rows of a guide's "Key words" (or "Key terms") table: [{ term, meaning }].
+  function keyWordRows(guide) {
+    const g = String(guide || '');
+    const m = g.match(/^#{2,4}\s*Key (?:words|terms)\b[^\n]*\n((?:[ \t]*\n)*(?:\|[^\n]*\n?)+)/m);
+    if (!m) return [];
+    return m[1].split('\n').filter(l => /^\s*\|/.test(l)).slice(2).map(cells)
+      .filter(c => c.length >= 2 && c[0] && c[1])
+      .map(c => ({ term: c[0].replace(/\*\*|__/g, '').trim(), meaning: c[1] }))
+      .filter(r => r.term && r.meaning);
+  }
+
+  // Hide the words that would give the answer away. Matching is by stem, so "rights" hides "right" and
+  // "policies" hides "policy"; a possessive ("Ash’s") loses its name and keeps the "’s".
+  const wordStem = w => stem(w.toLowerCase());
+  function redact(text, words) {
+    const hide = new Set(words.filter(w => w && w.length >= 3).map(wordStem));
+    if (!hide.size) return String(text || '');
+    const hit = w => hide.has(wordStem(w));
+    // A [[…]] link is kept whole, or replaced whole when it names a hidden word (it would open the answer).
+    return String(text || '').replace(/\[\[[^\]]*\]\]|\p{L}[\p{L}\p{M}]*/gu, w => (w.startsWith('[[')
+      ? ((w.match(/\p{L}[\p{L}\p{M}]*/gu) || []).some(hit) ? '___' : w)
+      : (hit(w) ? '___' : w)));
+  }
+  const NAME_SKIP = new Set(['the', 'and', 'state', 'union', 'india', 'ltd', 'limited', 'company', 'corporation', 'others', 'anr', 'ors', 'reg', 'regina', 'rex', 'king', 'queen', 'board', 'bank', 'commissioner', 'government', 'secretary', 'parte', 'for', 'case', 'association', 'trust', 'society', 'council', 'municipal', 'district', 'collector', 'officer']);
+  // The words of a case title worth hiding: party names and any short name in brackets ("(Sabarimala)").
+  const nameWords = name => String(name || '').split(/[^\p{L}\p{M}]+/u).filter(w => w.length >= 3 && !NAME_SKIP.has(w.toLowerCase()));
+  // The words of a key word worth hiding: all of a one-word term, the meaningful ones of a longer term.
+  const termWords = term => { const ws = String(term).split(/[^\p{L}\p{M}]+/u).filter(Boolean); return ws.length === 1 ? ws : ws.filter(w => w.length >= 3 && !STOP.has(w.toLowerCase())); };
+  const firstSentences = (text, max = 280) => {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= max) return t;
+    const cut = t.slice(0, max), end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
+    return (end > 80 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, '')) + ' …';
+  };
+
+  // How many questions a topic's quiz should have: more notes, more questions. About one for every
+  // 100 words of the guide, at least 6 and at most 20, on top of the questions written for it.
+  function quizSize(guide) {
+    const words = String(guide || '').split(/\s+/).filter(Boolean).length;
+    return Math.max(6, Math.min(20, Math.round(words / 100)));
+  }
+
+  // A topic's quick quiz: the questions written for it, plus questions built from its own notes —
+  // its case cards ("Which case?" from the holding, then from the facts) and its Key words table
+  // (term from meaning, then meaning from term). The more the notes hold, the more questions.
+  // Wrong options come from the same topic first, then from the rest of the subject.
+  function topicQuiz(subject, topic, opts = {}) {
+    const rnd = opts.rnd || Math.random;
+    const authored = (subject.mcqs || []).filter(q => q.topic === topic.id);
+    const n = opts.size != null ? opts.size : quizSize(topic.guide);
+    const allCases = Object.entries(subject.cases || {}).filter(([, c]) => c && c.name);
+    const mine = (topic.cases || []).map(k => [k, (subject.cases || {})[k]]).filter(([, c]) => c && c.name);
+    const tops = (subject.units || []).flatMap(u => u.topics || []);
+    const rows = keyWordRows(topic.guide);
+    const otherRows = tops.filter(t => t.id !== topic.id).flatMap(t => keyWordRows(t.guide));
+    const pick = (right, near, far, k = 3) => {
+      const seen = new Set([right.toLowerCase()]); const out = [];
+      for (const x of shuffled(near, rnd).concat(shuffled(far, rnd))) { if (out.length >= k) break; const key = String(x).toLowerCase(); if (!seen.has(key)) { seen.add(key); out.push(x); } }
+      return out.length === k ? out : null;
+    };
+    const mcq = (id, q, right, wrong, why) => { const options = shuffled([right, ...wrong], rnd); return { id, topic: topic.id, q, options, answer: options.indexOf(right), why, generated: true }; };
+    const caseName = ([k]) => (subject.cases[k] || {}).name;
+    const tiers = [[], [], [], []];
+    for (const [key, c] of mine) {
+      const near = mine.filter(([k]) => k !== key).map(caseName), far = allCases.filter(([k]) => k !== key && !(topic.cases || []).includes(k)).map(([, x]) => x.name);
+      const cite = c.cite ? ` ${/^[([]/.test(c.cite) ? c.cite : `(${c.cite})`}` : '';
+      const why = `**${c.name}**${cite}${c.oneLine ? `: ${c.oneLine}` : ''}`;
+      const hide = nameWords(c.name);
+      if (c.oneLine) { const w = pick(c.name, near, far); if (w) tiers[0].push(mcq(`gen:${topic.id}:case:${key}`, `Which case? ${redact(c.oneLine, hide)}`, c.name, w, why)); }
+      if (c.facts) { const w = pick(c.name, near, far); if (w) tiers[2].push(mcq(`gen:${topic.id}:facts:${key}`, `Which case had these facts? ${redact(firstSentences(c.facts), hide)}`, c.name, w, why)); }
+    }
+    for (const r of rows) {
+      const slug = r.term.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const hide = termWords(r.term);
+      const w = pick(r.term, rows.filter(x => x !== r).map(x => x.term), otherRows.map(x => x.term));
+      if (w) tiers[1].push(mcq(`gen:${topic.id}:kw:${slug}`, `Which key word? ${redact(r.meaning, hide)}`, r.term, w, `**${r.term}**: ${r.meaning}`));
+      const m = pick(r.meaning, rows.filter(x => x !== r).map(x => x.meaning), otherRows.map(x => x.meaning));
+      if (m) tiers[3].push(mcq(`gen:${topic.id}:mean:${slug}`, `What does **${r.term}** mean?`, r.meaning, m, `**${r.term}**: ${r.meaning}`));
+    }
+    // Fill the quiz tier by tier; within the first two, alternate cases and key words so a short quiz has both.
+    const out = [];
+    const lanes = [shuffled(tiers[0], rnd), shuffled(tiers[1], rnd)];
+    while (out.length < n && lanes.some(l => l.length)) for (const l of lanes) if (l.length && out.length < n) out.push(l.shift());
+    for (const t of [tiers[2], tiers[3]]) for (const q of shuffled(t, rnd)) if (out.length < n) out.push(q);
+    return authored.concat(out);
+  }
+
   // Interleaved quiz: questions from every topic of a subject, spread so the same topic rarely comes twice in a row.
   function interleave(questions, n = 15, rnd = Math.random) {
     const byTopic = {};
@@ -161,5 +262,5 @@
     return out.sort((a, b) => b.age - a.age);
   }
 
-  LQ.retention = { keyTerms, coverage, suggestGrade, cardPoint, scoreRecall, weakCards, weakQuestions, caseQuestions, interleave, recallDue, CHECKPOINTS };
+  LQ.retention = { keyTerms, coverage, suggestGrade, cardPoint, scoreRecall, weakCards, weakQuestions, caseQuestions, interleave, recallDue, CHECKPOINTS, keyWordRows, quizSize, topicQuiz };
 })();

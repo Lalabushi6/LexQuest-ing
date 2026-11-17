@@ -198,6 +198,18 @@
     let n = 0;
     return p.rooms.flatMap(r => r.loci.map(l => ({ ...l, n: ++n, room: r.name, icon: r.icon, palace: p.id, subject: p.subject })));
   }
+  // A locus may carry a picture of its scene (`img`: a file: or data: URL, set by its pack). In a walk it
+  // appears only after Reveal, so it never gives the answer away. A picture that fails to load is hidden.
+  const SAFE_IMG = /^(data:image\/|file:|https?:\/\/(localhost|127\.0\.0\.1)[:/]|[\w./-]+\.(svg|png|jpe?g|webp)$)/i;
+  function locusImg(l, cls) {
+    if (!l.img || typeof l.img !== 'string' || !SAFE_IMG.test(l.img)) return '';
+    return `<img class="${cls}" src="${esc(l.img)}" alt="${esc(l.spot ? `Scene at ${l.spot}` : 'Scene')}" loading="lazy">`;
+  }
+  LQ.locusImg = locusImg;
+  // Inline handlers are blocked by the page's CSP, so broken pictures are removed here.
+  const hideBroken = LQ.hideBrokenLocusImgs = root => $$('img.locus-img, img.walk-img', root).forEach(img => {
+    if (img.complete && !img.naturalWidth) img.remove(); else img.addEventListener('error', () => img.remove(), { once: true });
+  });
   LQ.palaceLociFor = function (sid, tid) {
     return palaces().filter(p => !sid || p.subject === sid).flatMap(numbered).filter(l => l.topic === tid);
   };
@@ -211,12 +223,14 @@
       <div class="pill-nav">${list.map(x => `<button class="${sel && sel.id === x.id ? 'active' : ''}" data-go="#/palace?id=${x.id}">${esc(x.name)}${x.custom ? ' ✏️' : ''}</button>`).join('')}</div>
       ${sel ? `<div class="hero"><div class="row between"><div><h2>${esc(sel.name)}</h2><p class="muted">${esc(sel.intro || '')}</p></div>
         <div class="row"><button class="btn primary" data-go="#/palace?walk=${sel.id}">🚶 Walk it (${numbered(sel).length} loci)</button><button class="btn" data-go="#/palace?walk=${sel.id}&reverse=1">↩ Walk backwards</button>${sel.custom ? `<button class="btn" id="editPalace" data-id="${sel.id}">Edit</button>` : ''}</div></div></div>
-        <div class="palace-rooms">${(() => { let n = 0; return sel.rooms.map(r => `<div class="room"><div class="room-head"><span class="ri">${r.icon || '🚪'}</span><h3 style="margin:0">${esc(r.name)}</h3></div>${r.loci.map(l => { n++; const w = LQ.state.palace.walks[l.id]; return `<div class="locus"><span class="n">${n}</span><div><strong>${esc(l.spot)}</strong> ${w ? (w.ok ? '<span class="chip ok">✓</span>' : '<span class="chip no">missed</span>') : ''}<br><span style="font-size:.92em">${LQ.md(l.image).replace(/^<p>|<\/p>$/g, '')}</span><br><small class="muted">↳ ${LQ.md(l.meaning).replace(/^<p>|<\/p>$/g, '')}</small></div></div>`; }).join('')}</div>`).join(''); })()}</div>` : `<div class="empty">No palace yet.</div>`}
+        ${LQ.palacePlan ? `<details class="card palace-plan" open><summary><strong>🗺️ Floor plan</strong> <small class="muted">Follow the dashed route from START. Green = recalled on your last walk, red = missed.</small></summary>${LQ.palacePlan(sel, { walks: LQ.state.palace.walks })}</details>` : ''}
+        <div class="palace-rooms">${(() => { let n = 0; return sel.rooms.map(r => `<div class="room"><div class="room-head"><span class="ri">${r.icon || '🚪'}</span><h3 style="margin:0">${esc(r.name)}</h3></div>${r.loci.map(l => { n++; const w = LQ.state.palace.walks[l.id]; return `<div class="locus"><span class="n">${n}</span><div><strong>${esc(l.spot)}</strong> ${w ? (w.ok ? '<span class="chip ok">✓</span>' : '<span class="chip no">missed</span>') : ''}${locusImg(l, 'locus-img')}<br><span style="font-size:.92em">${LQ.md(l.image).replace(/^<p>|<\/p>$/g, '')}</span><br><small class="muted">↳ ${LQ.md(l.meaning).replace(/^<p>|<\/p>$/g, '')}</small></div></div>`; }).join('')}</div>`).join(''); })()}</div>` : `<div class="empty">No palace yet.</div>`}
     </div>`;
   };
 
   LQ.after.palace = function (p) {
     if (p.walk) return walk(p);
+    hideBroken(document);
     const np = $('#newPalace'); if (np) np.onclick = () => editPalace(null);
     const ep = $('#editPalace'); if (ep) ep.onclick = () => editPalace(ep.dataset.id);
   };
@@ -256,8 +270,9 @@
       if (revealed) return;
       revealed = true;
       const l = loci[i];
-      $('#reveal', stage).innerHTML = `<div class="image"><p>${LQ.md(l.image).replace(/^<p>|<\/p>$/g, '')}</p><p class="muted">↳ ${LQ.md(l.meaning).replace(/^<p>|<\/p>$/g, '')}</p></div>
+      $('#reveal', stage).innerHTML = `${locusImg(l, 'walk-img')}<div class="image"><p>${LQ.md(l.image).replace(/^<p>|<\/p>$/g, '')}</p><p class="muted">↳ ${LQ.md(l.meaning).replace(/^<p>|<\/p>$/g, '')}</p></div>
         <div class="row" style="justify-content:center;margin-top:14px"><button class="btn good" data-r="1">Got it <kbd>Space</kbd></button><button class="btn bad" data-r="0">Missed it <kbd>2</kbd></button></div>`;
+      hideBroken(stage);
       $$('[data-r]', stage).forEach(b => b.onclick = () => rate(b.dataset.r === '1'));
     }
     function rate(good) {
