@@ -13,6 +13,7 @@ LexQuest comes with no courses. You build your own in the **Course Builder** fro
 - **Drills** for retrieval practice: closed-book **free recall** of a topic, checked against its cards and scheduled 1, 3, 7 and 14 days after you learn it; **weak spots** (the cards and questions you keep missing); an **interleaved quiz** across a subject's topics; and a **case drill** (name the case from what it held)
 - **Revision sheets**: a sheet per subject, read one section at a time in Focus mode, ticked off, searched, and checked with three typed questions per section. A pack can supply its own sheet; otherwise one is assembled from the topics' notes, key words and cases
 - **Base Defence**, a typing game: asteroids carry clues (key words, flashcards, cases, MCQs or a pack's own questions) and fall on your base, and typing the answer destroys them. Four difficulties, five modes (endless, 5-minute blitz, 25-minute pomodoro, weak spots, zen), small typos forgiven but numbers exact, and after a hit you re-type the answer once to repair the shield. Missed questions come back a few asteroids later
+- **Three quick games** beside it: **Lightning Judge** (a clue and an answer, half of them decoys: rule it right or wrong before the timer runs out), **Match Pairs** (connect six clues to their answers, three boards, against the clock) and **Fill the Gap** (a line of the revision sheet with a key word blanked: type it)
 - **Memory palaces**, walked forwards and backwards
 - **Past papers and timed mock exams**, with model outlines and self-marking
 - **An adaptive timetable:** topic blocks you skip are split up and spread over the days before that subject's next exam
@@ -100,7 +101,7 @@ npm test
 | `app/js/views-builder.js`, `app/js/search.js` | The Course Builder's pages, and search |
 | `app/js/planner.js` | The adaptive timetable logic, with no UI (tested in `test/`) |
 | `app/js/retention.js`, `app/js/views-retention.js` | Drills: answer and free-recall scoring, weak spots, interleaved and case drills, the spaced recall schedule (the logic is tested in `test/`), and their pages |
-| `app/js/revision-core.js`, `app/js/views-revision.js` | Revision sheets and the Base Defence game: answer matching and the question bank (tested in `test/`), and their pages |
+| `app/js/revision-core.js`, `app/js/views-revision.js`, `app/js/views-minigames.js` | Revision sheets and the games: answer matching, the question bank and the quick games' rounds (tested in `test/`), and their pages |
 | `app/js/` | Views, flashcards, profiles and the update screen |
 | `examples/` | The example course pack |
 

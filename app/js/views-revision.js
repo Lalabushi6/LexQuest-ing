@@ -84,7 +84,7 @@
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
           <button class="btn small ${read[s.id] ? '' : 'primary'}" data-revx-read="${esc(s.id)}">${read[s.id] ? '↺ Mark unread' : '✓ Got it'}</button>
           ${s.topic ? `<button class="btn small" data-revx-check="${esc(s.topic)}" data-revx-secid="${esc(s.id)}">⚡ Quick check (3 questions)</button>
-          <button class="btn small" data-go="#/games?subject=${esc(sid)}&topic=${esc(s.topic)}">☄️ Defend the base: this topic</button>` : ''}
+          <button class="btn small" data-go="#/games?game=defence&subject=${esc(sid)}&topic=${esc(s.topic)}">☄️ Defend the base: this topic</button>` : ''}
         </div><div class="revx-qc" id="qc-${esc(s.id)}"></div></section>`;
     return `<div class="page read revx" style="max-width:1260px">
       <style>
@@ -232,8 +232,12 @@
 
   LQ.views.games = function games(params) {
     const subs = subjectsNow();
-    if (!subs.length) return `<div class="page"><h1>☄️ Base Defence</h1>${LQ.noCourses()}<p class="muted">The game's questions come from your courses, so add one first.</p></div>`;
+    if (!subs.length) return `<div class="page"><h1>☄️ Games</h1>${LQ.noCourses()}<p class="muted">The games' questions come from your courses, so add one first.</p></div>`;
     const st = store(), p = st.prefs;
+    // The other games (views-minigames.js) share this page; the picker switches between them.
+    const kind = params.game || p.gameKind || 'defence';
+    if (kind !== 'defence' && LQ.miniGames && LQ.miniGames.has(kind)) { p.gameKind = kind; return LQ.miniGames.view(kind, params); }
+    p.gameKind = 'defence';
     const sid = D.subjects[params.subject] ? params.subject : (D.subjects[p.gameSubject] ? p.gameSubject : subs[0].id);
     p.gameSubject = sid;
     const lvl = LEVELS[params.level] ? params.level : (LEVELS[p.gameLevel] ? p.gameLevel : 'cadet');
@@ -274,7 +278,8 @@
       </style>
       <div id="gxSetup" class="gx-setup">
         <div class="row between" style="flex-wrap:wrap;gap:10px"><h1 style="margin:0">☄️ Base Defence</h1>
-          <div class="pill-nav" style="margin:0">${subs.map(s => `<button data-go="#/games?subject=${esc(s.id)}" class="${s.id === sid ? 'active' : ''}">${esc(s.icon || '')} ${esc(s.short || s.name)}</button>`).join('')}</div></div>
+          <div class="pill-nav" style="margin:0">${subs.map(s => `<button data-go="#/games?game=defence&subject=${esc(s.id)}" class="${s.id === sid ? 'active' : ''}">${esc(s.icon || '')} ${esc(s.short || s.name)}</button>`).join('')}</div></div>
+        ${LQ.miniGames ? LQ.miniGames.picker('defence', sid) : ''}
         <p class="muted">Asteroids carry questions and fall on your court-house base. <b>Type the key word, case or concept</b> to blast them. A hit costs shield; then you re-type the right answer once to repair it, which is what makes it stick.</p>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:14px">
           <span class="chip">${items.length} questions</span><span class="chip">✍️ ${bySrc('core')} hand-written</span><span class="chip">🔑 ${bySrc('kw')} key words</span><span class="chip">🃏 ${bySrc('card')} flashcards</span><span class="chip">⚖️ ${bySrc('case')} case</span><span class="chip">❓ ${bySrc('mcq')} MCQ</span>
@@ -300,6 +305,7 @@
   };
 
   LQ.after.games = function (params) {
+    if ($('#mgRoot') && LQ.miniGames) return LQ.miniGames.after(params);
     if (!$('#gxSetup')) return; // no courses: nothing to wire
     setCrumb('Games · Base Defence');
     const st = store(), p = st.prefs, sid = p.gameSubject;
@@ -649,4 +655,7 @@
     }
     requestAnimationFrame(frame);
   }
+
+  // Shared with the other games (views-minigames.js).
+  LQ.revKit = { store, save, record, itemStat, bank, sheetFor, subjectsNow, topicsOf, plain, md, setCrumb, shortTopic };
 })();

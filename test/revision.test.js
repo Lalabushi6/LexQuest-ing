@@ -101,4 +101,37 @@ test('duplicate clues are dropped', () => {
   assert.strictEqual(twice.filter(x => x.src === 'core').length, 1);
 });
 
+// The quick games, on a bigger made-up bank.
+const seeded = seed => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const bigCurated = Array.from({ length: 16 }, (_, k) => ({ t: k % 2 ? 's-hull' : 's-sail', d: 2, q: `Clue number ${k} about knot ${String.fromCharCode(65 + k)}`, a: [`answer ${String.fromCharCode(97 + k)}${k}`], why: 'Because.' }));
+const big = R.buildBank(S, bigCurated, () => null);
+
+test('Lightning Judge: about half decoys, and a decoy is never an accepted answer', () => {
+  const rounds = R.judgeRounds(big, 200, seeded(7));
+  assert(rounds.length > 0 && rounds.length <= big.length);
+  const many = []; for (let s = 1; s <= 20; s++) many.push(...R.judgeRounds(big, 10, seeded(s)));
+  const decoys = many.filter(r => !r.truth);
+  assert(decoys.length > many.length * 0.3 && decoys.length < many.length * 0.7, `decoys ${decoys.length}/${many.length}`);
+  for (const r of many) {
+    if (r.truth) assert.strictEqual(r.shown, r.it.show);
+    else assert(!R.matches(r.shown, r.it.a), `decoy accepted: ${r.shown}`);
+  }
+  assert.deepStrictEqual(R.judgeRounds(big.slice(0, 2), 5), []); // too few to play
+});
+test('Match Pairs: six distinct answers, shuffled, each pair present once', () => {
+  const b = R.pairBoard(big, 6, seeded(3));
+  assert.strictEqual(b.pairs.length, 6);
+  assert.strictEqual(new Set(b.pairs.map(x => R.norm(x.show))).size, 6);
+  assert.deepStrictEqual(new Set(b.answers), new Set(b.pairs));
+  assert.strictEqual(R.pairBoard(big.slice(0, 2), 6), null);
+});
+test('Fill the Gap: one bold term blanked per line, from lists and tables', () => {
+  const sections = [{ id: 'x', title: 'Hulls', topic: 's-hull', md: '### Hulls\n- The **barnacle clause** lets the owner scrape the hull first.\n| Term | Meaning |\n|---|---|\n| **Keel** | The spine along the bottom of the ship. |\n- **and** is too short to ask about but this line is long enough.\nA paragraph with **bold** is skipped.' }];
+  const g = R.gapLines(sections, R.plainWith(() => null));
+  assert.strictEqual(g.length, 2, JSON.stringify(g));
+  assert(g[0].text.includes('_____') && !/barnacle clause/i.test(g[0].text) && g[0].show === 'barnacle clause');
+  assert(g[1].text.startsWith('_____ — The spine') && R.matches('keel', g[1].a));
+  assert.strictEqual(g[0].t, 's-hull');
+});
+
 console.log(`\n${passed} revision tests passed`);

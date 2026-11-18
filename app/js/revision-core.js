@@ -175,7 +175,64 @@
     return items;
   }
 
-  const api = { norm, lev, matches, exactHit, caseAliases, maskWords, aliasSet, dropLeaks, buildBank, plainWith, clip };
+  /* ---------------- the quick games ---------------- */
+  const pickN = (arr, n, rand) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
+  const shortAnswer = it => it.show && it.show.length <= 48 && it.q.length <= 220;
+
+  // Lightning Judge: a clue with an answer that is either its own or a decoy (another item's answer,
+  // from the same topic when there is one, that the clue would not accept).
+  function judgeRounds(items, n, rand = Math.random) {
+    const pool = items.filter(shortAnswer);
+    if (pool.length < 4) return [];
+    return pickN(pool, n, rand).map(it => {
+      if (rand() < 0.5) return { it, shown: it.show, truth: true };
+      const ok = d => d !== it && norm(d.show) !== norm(it.show) && !matches(d.show, it.a);
+      const same = pool.filter(d => d.t === it.t && ok(d));
+      const any = same.length ? same : pool.filter(ok);
+      if (!any.length) return { it, shown: it.show, truth: true };
+      return { it, shown: any[Math.floor(rand() * any.length)].show, truth: false };
+    });
+  }
+
+  // Match Pairs: n clues and their answers, no two answers alike.
+  function pairBoard(items, n, rand = Math.random) {
+    const seen = new Set(), pairs = [];
+    for (const it of pickN(items.filter(shortAnswer), items.length, rand)) {
+      const k = norm(it.show); if (!k || seen.has(k)) continue;
+      seen.add(k); pairs.push(it);
+      if (pairs.length === n) break;
+    }
+    return pairs.length < Math.min(n, 3) ? null : { pairs, answers: pickN(pairs, pairs.length, rand) };
+  }
+
+  // Fill the Gap: lines of a revision sheet (list items and table rows) with one bold term blanked.
+  function gapLines(sections, plain) {
+    const out = [], seen = new Set();
+    for (const s of sections || []) {
+      for (const raw of String(s.md || '').split('\n')) {
+        const line = raw.trim();
+        if (!/^([-•]|\d+[.)]|\|)/.test(line) || /^\|[\s:|-]+\|$/.test(line)) continue;
+        const text = line.startsWith('|') ? line.replace(/^\||\|$/g, '').split('|').map(c => c.trim()).filter(Boolean).join(' — ') : line.replace(/^([-•]|\d+[.)])\s+/, '');
+        const bolds = [...text.matchAll(/\*\*(.+?)\*\*/g)].map(m => m[1]);
+        for (const b of bolds) {
+          const ans = plain(b).replace(/[.:;,]+$/, '');
+          if (ans.length < 3 || ans.length > 40 || /^(and|or|not|no|yes|but|only|may|must|all|the)$/i.test(ans)) continue;
+          const blanked = plain(text.replace('**' + b + '**', '⟪GAP⟫'));
+          if (!blanked.includes('⟪GAP⟫') || blanked.length < 30 || blanked.length > 280) continue;
+          const left = blanked.replace('⟪GAP⟫', '').toLowerCase();
+          if (norm(left).includes(norm(ans)) && ans.length >= 4) continue; // the answer is elsewhere in the line
+          const key = norm(blanked) + '|' + norm(ans);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({ id: hash(s.id + key), t: s.topic || '', section: s.title, text: blanked.replace('⟪GAP⟫', '_____'), show: ans, a: aliasSet([ans]) });
+          break; // one gap per line
+        }
+      }
+    }
+    return out;
+  }
+
+  const api = { norm, lev, matches, exactHit, caseAliases, maskWords, aliasSet, dropLeaks, buildBank, plainWith, clip, judgeRounds, pairBoard, gapLines, pickN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') { window.LQ = window.LQ || {}; window.LQ.revCore = api; }
 })();
